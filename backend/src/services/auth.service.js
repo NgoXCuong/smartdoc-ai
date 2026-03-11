@@ -79,7 +79,7 @@ const authService = {
 
     return {
       accessToken: newAccessToken,
-      newRefreshToken
+      newRefreshToken,
     };
   },
 
@@ -90,6 +90,15 @@ const authService = {
       await user.save();
     }
     return { message: "Đăng xuất thành công" };
+  },
+
+  getProfile: async (userId) => {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error("Người dùng không tồn tại");
+    }
+
+    return user;
   },
 };
 

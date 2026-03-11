@@ -77,3 +77,16 @@ export const logoutUser = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+
+export const profileUser = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await authService.getProfile(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+    return res.status(200).json({ user });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
