@@ -9,6 +9,15 @@ export const loginLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+export const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message:
+    "Quá nhiều yêu cầu tạo tài khoản từ IP này, vui lòng thử lại sau 1 giờ.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export const validate = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
 

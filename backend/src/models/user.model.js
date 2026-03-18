@@ -8,6 +8,15 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ["user", "admin"], default: "user" },
     isActive: { type: Boolean, default: true },
     refreshToken: { type: String },
+
+    // Quên mật khâu và reset
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
+
+    // Verify Email
+    isEmailVerified: { type: Boolean, default: false },
+    verificationToken: { type: String },
+    verificationTokenExpires: { type: Date },
   },
   { timestamps: true },
 );

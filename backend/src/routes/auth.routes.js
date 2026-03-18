@@ -5,10 +5,25 @@ import {
   refreshToken,
   logoutUser,
   profileUser,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
 } from "../controllers/auth.controller.js";
-import { validate, verifyToken } from "../middlewares/auth.middleware.js";
-import { registerSchema, loginSchema } from "../validations/auth.validation.js";
+import {
+  registerLimiter,
+  validate,
+  verifyToken,
+} from "../middlewares/auth.middleware.js";
+import {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  checkEmailForgotPassSchema,
+  resetPasswordSchema,
+} from "../validations/auth.validation.js";
 import { loginLimiter } from "../middlewares/auth.middleware.js";
+import authService from "../services/auth.service.js";
 
 const router = express.Router();
 
@@ -50,7 +65,12 @@ const router = express.Router();
  *       400:
  *         description: Dữ liệu không hợp lệ hoặc email đã tồn tại
  */
-router.post("/register", validate(registerSchema), registerUser);
+router.post(
+  "/register",
+  registerLimiter,
+  validate(registerSchema),
+  registerUser,
+);
 
 /**
  * @swagger
@@ -88,22 +108,18 @@ router.post("/login", loginLimiter, validate(loginSchema), loginUser);
  *   post:
  *     summary: Làm mới Access Token
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - refreshToken
- *             properties:
- *               refreshToken:
- *                 type: string
+ *     parameters:
+ *       - in: cookie
+ *         name: refreshToken
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Refresh Token được lưu trong HttpOnly Cookie
  *     responses:
  *       200:
  *         description: Trả về access token mới
  *       401:
- *         description: Refresh token không hợp lệ
+ *         description: Refresh token không hợp lệ hoặc không được cung cấp
  */
 router.post("/refresh-token", refreshToken);
 
@@ -138,5 +154,26 @@ router.post("/logout", verifyToken, logoutUser);
  *         description: Chưa xác thực
  */
 router.get("/me", verifyToken, profileUser);
+
+router.put(
+  "/change-password",
+  verifyToken,
+  validate(changePasswordSchema),
+  changePassword,
+);
+
+router.post(
+  "/forgot-password",
+  validate(checkEmailForgotPassSchema),
+  forgotPassword,
+);
+
+router.post(
+  "/reset-password/:token",
+  validate(resetPasswordSchema),
+  resetPassword,
+);
+
+router.post("/verify-email/:token", verifyEmail);
 
 export default router;
