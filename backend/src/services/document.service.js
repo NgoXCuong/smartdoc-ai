@@ -35,6 +35,44 @@ const documentService = {
       logger.error(`Lỗi khi cập nhật trạng thái tài liệu ${docId}:`, error);
     }
   },
+
+  getDocumentByUser: async (userId, page = 1, limit = 10, search = "") => {
+    const query = { userId };
+    if (search) {
+      query.fileName = { $regex: search, $options: "i" };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [documents, total] = await Promise.all([
+      Document.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
+      Document.countDocuments(query)
+    ]);
+
+    return {
+      documents,
+      totalPages: Math.ceil(total / limit),
+      currentPage: Number(page),
+      totalDocuments: total,
+    };
+  },
+
+  getDocumentById: async (docId, userId) => {
+    const document = await Document.findOne({ _id: docId, userId });
+    if (!document) {
+      throw new Error("Tài liệu không tồn tại hoặc bạn không có quyền xem");
+    }
+    return document;
+  },
+
+  deleteDocumentById: async (docId, userId) => {
+    const document = await Document.findOneAndDelete({ _id: docId, userId });
+    if (!document) throw new Error("Xóa Database không thành công");
+    return document;
+  },
 };
 
 export default documentService;

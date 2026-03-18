@@ -5,6 +5,6 @@ import documentRoutes from "./document.routes.js";
 const router = express.Router();
 
 router.use("/auth", authRoutes);
-router.use("/document", documentRoutes);
+router.use("/docs", documentRoutes);
 
 export default router;
