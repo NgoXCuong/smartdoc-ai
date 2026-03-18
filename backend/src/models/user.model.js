@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     isActive: { type: Boolean, default: true },
-    refreshToken: { type: String },
+    refreshTokens: [{ type: String }],
 
     // Quên mật khâu và reset
     resetPasswordToken: { type: String },
@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
-  delete user.refreshToken;
+  delete user.refreshTokens;
   delete user.__v;
   return user;
 };

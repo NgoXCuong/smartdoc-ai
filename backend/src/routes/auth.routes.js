@@ -155,6 +155,39 @@ router.post("/logout", verifyToken, logoutUser);
  */
 router.get("/me", verifyToken, profileUser);
 
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   put:
+ *     summary: Đổi mật khẩu
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oldPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               oldPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Đổi mật khẩu thành công
+ *       400:
+ *         description: Mật khẩu cũ không đúng hoặc dữ liệu không hợp lệ
+ *       401:
+ *         description: Chưa xác thực
+ */
 router.put(
   "/change-password",
   verifyToken,
@@ -162,18 +195,96 @@ router.put(
   changePassword,
 );
 
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Gửi email khôi phục mật khẩu
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Email khôi phục mật khẩu đã được gửi
+ *       400:
+ *         description: Không tìm thấy người dùng
+ */
 router.post(
   "/forgot-password",
   validate(checkEmailForgotPassSchema),
   forgotPassword,
 );
 
+/**
+ * @swagger
+ * /api/auth/reset-password/{token}:
+ *   post:
+ *     summary: Đặt lại mật khẩu mới
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Token reset mật khẩu được gửi trong email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - password
+ *               - confirmPassword
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               confirmPassword:
+ *                 type: string
+ *                 format: password
+ *     responses:
+ *       200:
+ *         description: Đặt lại mật khẩu thành công
+ *       400:
+ *         description: Token không hợp lệ hoặc dữ liệu không hợp lệ
+ */
 router.post(
   "/reset-password/:token",
   validate(resetPasswordSchema),
   resetPassword,
 );
 
-router.post("/verify-email/:token", verifyEmail);
+/**
+ * @swagger
+ * /api/auth/verify-email/{token}:
+ *   get:
+ *     summary: Xác thực địa chỉ email
+ *     tags: [Auth]
+ *     parameters:
+ *       - in: path
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Token xác thực được gửi trong email
+ *     responses:
+ *       200:
+ *         description: Xác thực email thành công
+ *       400:
+ *         description: Token không hợp lệ hoặc đã hết hạn
+ */
+router.get("/verify-email/:token", verifyEmail);
 
 export default router;

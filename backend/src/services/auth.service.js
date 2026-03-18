@@ -38,7 +38,7 @@ const authService = {
       },
     });
 
-    const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verifyToken}`;
+    const verifyUrl = `${process.env.FRONTEND_URL}/api/auth/verify-email/${verifyToken}`;
 
     const mailOptions = {
       from: `"Smart Document AI Support" <${process.env.EMAIL_USER}>`,
@@ -96,6 +96,9 @@ const authService = {
       expiresIn: "7d",
     });
 
+    if (!user.refreshTokens) {
+      user.refreshTokens = [];
+    }
     user.refreshTokens.push(refreshToken);
     await user.save();
 
@@ -198,7 +201,6 @@ const authService = {
     // 2. Tạo mã token ngẫu nhiên bằng crypto
     const resetToken = crypto.randomBytes(32).toString("hex");
 
-    // NÂNG CẤP: Băm (Hash) token bằng thuật toán SHA256 trước khi lưu vào DB
     const hashedToken = crypto
       .createHash("sha256")
       .update(resetToken)
@@ -212,7 +214,6 @@ const authService = {
 
     // 4. Cấu hình Nodemailer và gửi thư
     const transporter = nodemailer.createTransport({
-      // Khuyến khích dùng biến môi trường cho các thông tin nhạy cảm này
       service: process.env.EMAIL_SERVICE || "Gmail",
       auth: {
         user: process.env.EMAIL_USER,
@@ -221,7 +222,7 @@ const authService = {
     });
 
     // Tạo URL dẫn tới Frontend
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/api/auth/reset-password?token=${resetToken}`;
 
     const mailOptions = {
       from: `"Smart Document AI Support" <${process.env.EMAIL_USER}>`,
