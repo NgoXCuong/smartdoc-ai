@@ -11,7 +11,7 @@ const documentSchema = new mongoose.Schema(
     fileType: { type: String, require: true },
     fileSize: { type: Number, require: true },
     fileUrl: { type: String, require: true },
-    clouFileId: { type: String, require: true },
+    cloudFileId: { type: String, require: true },
     status: {
       type: String,
       enum: ["pending", "processing", "completed", "failed"],
@@ -19,7 +19,7 @@ const documentSchema = new mongoose.Schema(
     },
     progress: { type: Number, default: 0, min: 0, max: 100 },
     vectorNamespace: { type: String, default: null, index: true },
-    totolChunks: { type: Number, default: 0 },
+    totalChunks: { type: Number, default: 0 },
     errorMessage: { type: String, default: null },
   },
   { timestamps: true },

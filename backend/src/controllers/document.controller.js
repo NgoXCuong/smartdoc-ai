@@ -19,7 +19,7 @@ export const uploadDocument = async (req, res) => {
       mimetype: file.mimetype,
       size: file.size,
       fileUrl: uploadedFile.fileUrl,
-      clouFileId: uploadedFile.cloudFileId,
+      cloudFileId: uploadedFile.cloudFileId,
     };
 
     const newDocument = await documentService.uploadDocument(
@@ -79,8 +79,8 @@ export const deleteDocument = async (req, res) => {
 
     const document = await documentService.getDocumentById(id, userId);
 
-    if (document.clouFileId) {
-      await storageService.deleteDocument(document.clouFileId);
+    if (document.cloudFileId) {
+      await storageService.deleteDocument(document.cloudFileId);
     }
 
     // 3. (Ghi chú) Chỗ này sau gọi lệnh xóa thẻ VectorDB

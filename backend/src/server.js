@@ -1,13 +1,13 @@
-import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
 import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
 import routes from "./routes/index.routes.js";
 import { setupSwagger } from "./config/swagger.js";
 import logger from "./utils/logger.js";
-
-dotenv.config();
 
 const app = express();
 
