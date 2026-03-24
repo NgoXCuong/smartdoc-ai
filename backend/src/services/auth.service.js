@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
+import logger from "../utils/logger.js";
 
 const authService = {
   register: async (username, email, password) => {
@@ -58,7 +59,7 @@ const authService = {
       await transporter.sendMail(mailOptions);
     } catch (error) {
       // Dù gửi mail lỗi thì user vẫn được tạo, nhưng ta nên log ra để kiểm tra
-      console.error("Lỗi gửi email xác thực:", error);
+      logger.error("Lỗi gửi email xác thực:", error);
     }
 
     // Trả về kèm thông báo để Frontend hiện popup nhắc check mail

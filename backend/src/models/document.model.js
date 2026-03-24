@@ -20,6 +20,8 @@ const documentSchema = new mongoose.Schema(
     progress: { type: Number, default: 0, min: 0, max: 100 },
     vectorNamespace: { type: String, default: null, index: true },
     totalChunks: { type: Number, default: 0 },
+    summary: { type: String, default: null },
+    suggestedQuestions: [{ type: String }],
     errorMessage: { type: String, default: null },
   },
   { timestamps: true },

@@ -17,6 +17,15 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    metadata: {
+      sources: [
+        {
+          docId: mongoose.Schema.Types.ObjectId,
+          fileName: String,
+          pageContent: String,
+        },
+      ],
+    },
   },
   { timestamps: true },
 );

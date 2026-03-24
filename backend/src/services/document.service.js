@@ -3,7 +3,7 @@ import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import { Document as LangChainDocument } from "@langchain/core/documents";
 
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
 import mongoose from "mongoose";
 
@@ -112,6 +112,11 @@ const documentService = {
         metadataKey: "metadata"
       });
 
+      // Bắt đầu quá trình tóm tắt và gợi ý câu hỏi (Background task)
+      documentService.generateSummaryAndQuestions(docId, text).catch(err => 
+        logger.error(`Lỗi tóm tắt tài liệu ${docId}:`, err)
+      );
+
       await Document.findByIdAndUpdate(docId, {
         status: "completed",
         progress: 100,
@@ -172,6 +177,54 @@ const documentService = {
 
     logger.info(`Đã xóa ${deleteResult.deletedCount} vector của tài liệu ${docId}`);
     return document;
+  },
+
+  generateSummaryAndQuestions: async (docId, text) => {
+    try {
+      const model = new ChatGoogleGenerativeAI({
+        apiKey: process.env.GOOGLE_API_KEY,
+        model: "gemini-flash-latest",
+        maxOutputTokens: 1000,
+        modelMetadata: {
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+        },
+      });
+
+      // Lấy 10000 ký tự đầu tiên để tóm tắt
+      const sampleText = text.substring(0, 10000);
+
+      const prompt = `
+        Bạn là một chuyên gia phân tích tài liệu. Dựa vào nội dung tài liệu sau đây:
+        ---
+        ${sampleText}
+        ---
+        Hãy thực hiện (trả về JSON theo cấu trúc yêu cầu):
+        {
+          "summary": "Tóm tắt nội dung chính trong khoảng 3-5 câu (Tiếng Việt).",
+          "questions": ["Đề xuất 3 câu hỏi quan trọng nhất dưới dạng mảng"]
+        }
+      `;
+
+      const response = await model.invoke(prompt);
+      let content = response.content;
+
+      // Extract JSON if it's wrapped in markers or has extra text
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Không tìm thấy dữ liệu JSON trong phản hồi của AI");
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      await Document.findByIdAndUpdate(docId, {
+        summary: result.summary,
+        suggestedQuestions: result.questions,
+      });
+
+      logger.info(`Đã tạo tóm tắt và gợi ý câu hỏi cho tài liệu: ${docId}`);
+    } catch (error) {
+      logger.error(`Lỗi khi tạo tóm tắt cho tài liệu ${docId}:`, error);
+    }
   },
 };
 
