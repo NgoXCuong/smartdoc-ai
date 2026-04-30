@@ -14,7 +14,11 @@ import logger from "./utils/logger.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import "./workers/document.worker.js"; // Khởi động worker xử lý hàng đợi
 
+import { createServer } from "http";
+import { initSocket } from "./config/socket.js";
+
 const app = express();
+const httpServer = createServer(app);
 
 const PORT = process.env.PORT || 3000;
 
@@ -38,8 +42,10 @@ app.use("/api", routes);
 // Error Handling (Must be after routes)
 app.use(errorHandler);
 
+initSocket(httpServer);
+
 connectDB().then(() => {
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     logger.info(`🚀 Server running on http://localhost:${PORT}`);
   });
 });

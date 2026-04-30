@@ -12,6 +12,11 @@ const documentSchema = new mongoose.Schema(
     fileSize: { type: Number, require: true },
     fileUrl: { type: String, require: true },
     cloudFileId: { type: String, require: true },
+    folderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Folder",
+      default: null,
+    },
     status: {
       type: String,
       enum: ["pending", "processing", "completed", "failed"],

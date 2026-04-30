@@ -1,5 +1,10 @@
 import express from "express";
-import { getAllUsers, deleteUser, getSystemStats } from "../controllers/admin.controller.js";
+import { 
+  getAllUsers, 
+  deleteUser, 
+  getSystemStats,
+  getUsageStats 
+} from "../controllers/admin.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
 import { isAdmin } from "../middlewares/admin.middleware.js";
 
@@ -11,5 +16,6 @@ router.use(verifyToken, isAdmin);
 router.get("/users", getAllUsers);
 router.delete("/users/:id", deleteUser);
 router.get("/stats", getSystemStats);
+router.get("/usage", getUsageStats);
 
 export default router;

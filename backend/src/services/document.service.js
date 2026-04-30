@@ -3,6 +3,7 @@ import Document from "../models/document.model.js";
 import logger from "../utils/logger.js";
 import ocrService from "./ocr.service.js";
 import aiService from "./ai.service.js";
+import { logUsage } from "../config/usage.js";
 import { Document as LangChainDocument } from "@langchain/core/documents";
 
 
@@ -177,13 +178,24 @@ const documentService = {
         totalChunks: chunkDocs.length,
       });
 
+      // Log usage for embedding
+      await logUsage({
+        userId: doc.userId,
+        type: "embedding",
+        tokens: Math.ceil(fullText.length / 4), // Ước tính
+        processingTime: Date.now() - startTime,
+        metadata: { docId }
+      });
+
       logger.info(`Đã xử lý xong Vector cho: ${docId}`);
+      return await Document.findById(docId);
     } catch (error) {
-      await Document.findByIdAndUpdate(docId, {
+      const failedDoc = await Document.findByIdAndUpdate(docId, {
         status: "failed",
         errorMessage: error.message,
-      });
+      }, { returnDocument: "after" });
       logger.error(`Lỗi xử lý tài liệu ${docId}:`, error);
+      return failedDoc;
     }
   },
 

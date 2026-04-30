@@ -20,6 +20,10 @@ const chatSessionSchema = new mongoose.Schema(
       trim: true,
       default: "Cuộc trò chuyện mới",
     },
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );
