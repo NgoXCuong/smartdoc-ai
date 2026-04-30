@@ -6,13 +6,13 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Watch Store API",
+      title: "SmartDoc AI API",
       version: "1.0.0",
-      description: "Tài liệu hướng dẫn sử dụng API cho dự án Watch Store",
+      description: "API Documentation for SmartDoc AI Project",
     },
     servers: [
       {
-        url: "http://localhost:3000",
+        url: `http://localhost:${process.env.PORT || 5000}`,
         description: "Development Server",
       },
     ],
@@ -25,5 +25,5 @@ const swaggerSpec = swaggerJsdoc(options);
 
 export const setupSwagger = (app) => {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  logger.info("📄 Swagger Docs đang chạy tại http://localhost:3000/api-docs");
+  logger.info(`📄 Swagger Docs đang chạy tại http://localhost:${process.env.PORT || 5000}/api-docs`);
 };

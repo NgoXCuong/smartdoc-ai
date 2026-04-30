@@ -25,7 +25,7 @@ const authService = {
       username,
       email,
       password: hashedPassword,
-      isEmailVerified: false,
+      isEmailVerified: true, // Tạm thời để true để bạn có thể đăng nhập ngay mà không cần check mail
       verificationToken: hashedVerifyToken,
       verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
     });
@@ -76,9 +76,11 @@ const authService = {
       throw new Error("Email không tồn tại");
     }
 
+    /* 
     if (!user.isEmailVerified) {
       throw new Error("Vui lòng xác thực email trước khi đăng nhập");
     }
+    */
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -91,7 +93,7 @@ const authService = {
     };
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "1d",
     });
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
       expiresIn: "7d",
@@ -130,7 +132,7 @@ const authService = {
     };
 
     const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "1d",
     });
 
     const newRefreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {

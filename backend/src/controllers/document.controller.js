@@ -1,6 +1,6 @@
 import documentService from "../services/document.service.js";
 import storageService from "../services/storage.service.js";
-// File xử lý upload và luồng chính
+import { addDocumentJob } from "../queues/document.queue.js";
 
 export const uploadDocument = async (req, res) => {
   try {
@@ -27,10 +27,8 @@ export const uploadDocument = async (req, res) => {
       fileMetadata,
     );
 
-    // 3. Tiến hành trích xuất chữ (Vector process) bất đồng bộ, trả về response nhanh
-    documentService.processEmbeddings(newDocument._id).catch((err) => {
-      console.error("Lỗi khi xử lý Vector Embedding:", err);
-    });
+    // 3. Tiến hành trích xuất chữ (Vector process) bất đồng bộ qua Queue
+    await addDocumentJob(newDocument._id);
 
     return res.status(201).json({
       message: "Tài liệu đang được xử lý",
@@ -83,8 +81,8 @@ export const deleteDocument = async (req, res) => {
       await storageService.deleteDocument(document.cloudFileId);
     }
 
-    // 3. (Ghi chú) Chỗ này sau gọi lệnh xóa thẻ VectorDB
-    // await vectorService.deleteVector(document.vectorNamespace);
+    // 3. Xóa các vector liên quan trong VectorDB
+    // (Đã được xử lý bên trong documentService.deleteDocumentById)
 
     await documentService.deleteDocumentById(id, userId);
     return res
@@ -94,3 +92,4 @@ export const deleteDocument = async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 };
+

@@ -22,6 +22,7 @@ const messageSchema = new mongoose.Schema(
         {
           docId: mongoose.Schema.Types.ObjectId,
           fileName: String,
+          pageNumber: Number,
           pageContent: String,
         },
       ],

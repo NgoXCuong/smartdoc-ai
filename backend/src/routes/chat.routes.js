@@ -5,10 +5,14 @@ import {
   getChatHistory,
 } from "../controllers/chat.controller.js";
 import { verifyToken } from "../middlewares/auth.middleware.js";
+import { authLimiter } from "../middlewares/rateLimit.middleware.js";
 
 const router = express.Router();
 
-router.post("/ask", verifyToken, askDocument);
+router.use(verifyToken);
+router.use(authLimiter);
+
+router.post("/ask", askDocument);
 router.get("/history", verifyToken, getAllChatByUser);
 router.get("/history/:sessionId", verifyToken, getChatHistory);
 

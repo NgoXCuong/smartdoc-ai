@@ -1,14 +1,10 @@
-import { WebPDFLoader } from "@langchain/community/document_loaders/web/pdf";
-import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
-import { Document as LangChainDocument } from "@langchain/core/documents";
-
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
 import mongoose from "mongoose";
-
 import Document from "../models/document.model.js";
 import logger from "../utils/logger.js";
+import ocrService from "./ocr.service.js";
+import aiService from "./ai.service.js";
+import { Document as LangChainDocument } from "@langchain/core/documents";
+
 
 const documentService = {
   uploadDocument: async (userId, file) => {
@@ -31,7 +27,7 @@ const documentService = {
           status: "processing",
           progress: 10,
         },
-        { returnDocument: 'after' },
+        { returnDocument: "after" },
       );
 
       if (!doc) throw new Error("Không tìm thấy tài liệu");
@@ -39,20 +35,52 @@ const documentService = {
       const response = await fetch(doc.fileUrl);
       const buffer = Buffer.from(await response.arrayBuffer());
 
-
-      // Chọn loader phù hợp dựa trên loại file
       let docs = [];
       const fileType = doc.fileType;
       const fileName = doc.fileName.toLowerCase();
 
-      if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
+      // --- PHẦN 1: TRÍCH XUẤT VĂN BẢN (LOADER + OCR) ---
+      if (fileType.startsWith("image/")) {
+        // Xử lý File Ảnh bằng OCR
+        const text = await ocrService.extractText(buffer);
+        docs = [
+          new LangChainDocument({
+            pageContent: text,
+            metadata: { pageNumber: 1 },
+          }),
+        ];
+      } else if (fileType === "application/pdf" || fileName.endsWith(".pdf")) {
+        // Xử lý File PDF
+        const { WebPDFLoader } = await import(
+          "@langchain/community/document_loaders/web/pdf"
+        );
         const blob = new Blob([buffer]);
         const loader = new WebPDFLoader(blob);
         docs = await loader.load();
+
+        // Kiểm tra nếu PDF Scanned (Không có chữ)
+        const totalText = docs.map((d) => d.pageContent).join("").trim();
+        if (totalText.length < 10) {
+          logger.info("PDF có vẻ là dạng ảnh quét. Đang tiến hành OCR đa trang...");
+          const { fullText, pageResults } = await ocrService.handlePDFOCR(buffer);
+          
+          if (pageResults && pageResults.length > 0) {
+            docs = pageResults.map(p => new LangChainDocument({
+              pageContent: p.content,
+              metadata: { pageNumber: p.pageNumber }
+            }));
+          } else {
+            throw new Error("Không thể trích xuất văn bản từ PDF quét");
+          }
+        }
       } else if (
-        fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        fileType ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
         fileName.endsWith(".docx")
       ) {
+        const { DocxLoader } = await import(
+          "@langchain/community/document_loaders/fs/docx"
+        );
         const blob = new Blob([buffer]);
         const loader = new DocxLoader(blob);
         docs = await loader.load();
@@ -63,40 +91,59 @@ const documentService = {
         fileName.endsWith(".md")
       ) {
         const content = buffer.toString("utf-8");
-        docs = [new LangChainDocument({ pageContent: content, metadata: { source: docId } })];
+        docs = [
+          new LangChainDocument({
+            pageContent: content,
+            metadata: { pageNumber: 1 },
+          }),
+        ];
       } else {
-        throw new Error(`Định dạng file ${fileType || fileName} chưa được hỗ trợ`);
+        throw new Error(
+          `Định dạng file ${fileType || fileName} chưa được hỗ trợ`,
+        );
       }
 
-      const text = docs.map((d) => d.pageContent).join("\n").trim();
+      // Chuẩn hóa metadata cho tất cả các trang
+      docs = docs.map((d) => {
+        return new LangChainDocument({
+          pageContent: d.pageContent,
+          metadata: {
+            source: new mongoose.Types.ObjectId(docId),
+            userId: new mongoose.Types.ObjectId(doc.userId),
+            fileName: doc.fileName,
+            pageNumber: d.metadata?.loc?.pageNumber || d.metadata?.pageNumber || 1,
+          },
+        });
+      });
 
-      if (!text || text.length < 5) {
-        throw new Error("Không thể trích xuất văn bản từ tài liệu này (Tài liệu trống hoặc không hỗ trợ)");
+      const fullText = docs.map((d) => d.pageContent).join("\n").trim();
+      if (!fullText || fullText.length < 5) {
+        throw new Error(
+          "Không thể trích xuất văn bản (File trống hoặc không hỗ trợ)",
+        );
       }
 
-      logger.info(`Đã trích xuất ${text.length} ký tự từ tài liệu: ${docId}`);
-
-      // Giả lập quá trình xử lý tài liệu và tạo embeddings
       await Document.findByIdAndUpdate(docId, { progress: 40 });
 
+      // --- PHẦN 2: CHIA NHỎ VĂN BẢN (TEXT SPLITTING) ---
+      const { RecursiveCharacterTextSplitter } = await import(
+        "@langchain/textsplitters"
+      );
       const splitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
         chunkOverlap: 200,
       });
 
-      const chunkDocs = await splitter.createDocuments(
-        [text],
-        [{
-          metadata: {
-            source: new mongoose.Types.ObjectId(docId),
-            userId: new mongoose.Types.ObjectId(doc.userId),
-            fileName: doc.fileName,
-          }
-        }]
-      );
-
+      // splitDocuments giúp duy trì metadata (pageNumber) cho từng chunk
+      const chunkDocs = await splitter.splitDocuments(docs);
       logger.info(`Đã chia tài liệu thành ${chunkDocs.length} đoạn (chunks)`);
 
+      // --- PHẦN 3: TẠO EMBEDDINGS & LƯU VECTOR DB ---
+      const { GoogleGenerativeAIEmbeddings } = await import(
+        "@langchain/google-genai"
+      );
+      const { MongoDBAtlasVectorSearch } = await import("@langchain/mongodb");
+      
       const embeddings = new GoogleGenerativeAIEmbeddings({
         apiKey: process.env.GOOGLE_API_KEY,
         model: "gemini-embedding-001",
@@ -109,13 +156,19 @@ const documentService = {
         indexName: "vector_index",
         textKey: "text",
         embeddingKey: "embedding",
-        metadataKey: "metadata"
       });
 
-      // Bắt đầu quá trình tóm tắt và gợi ý câu hỏi (Background task)
-      documentService.generateSummaryAndQuestions(docId, text).catch(err => 
-        logger.error(`Lỗi tóm tắt tài liệu ${docId}:`, err)
-      );
+      // --- PHẦN 4: TÓM TẮT & GỢI Ý CÂU HỎI (AI SERVICE) ---
+      aiService
+        .generateMetadata(fullText)
+        .then(async (result) => {
+          await Document.findByIdAndUpdate(docId, {
+            summary: result.summary,
+            suggestedQuestions: result.questions,
+          });
+          logger.info(`Đã cập nhật tóm tắt cho tài liệu: ${docId}`);
+        })
+        .catch((err) => logger.error(`Lỗi tóm tắt tài liệu ${docId}:`, err));
 
       await Document.findByIdAndUpdate(docId, {
         status: "completed",
@@ -124,15 +177,16 @@ const documentService = {
         totalChunks: chunkDocs.length,
       });
 
-      logger.info(`Đã xử lý xong Vector cho tài liệu: ${docId} với ${chunkDocs.length} chunks`);
+      logger.info(`Đã xử lý xong Vector cho: ${docId}`);
     } catch (error) {
       await Document.findByIdAndUpdate(docId, {
         status: "failed",
         errorMessage: error.message,
       });
-      logger.error(`Lỗi khi cập nhật trạng thái tài liệu ${docId}:`, error);
+      logger.error(`Lỗi xử lý tài liệu ${docId}:`, error);
     }
   },
+
 
   getDocumentByUser: async (userId, page = 1, limit = 10, search = "") => {
     const query = { userId };
@@ -179,53 +233,7 @@ const documentService = {
     return document;
   },
 
-  generateSummaryAndQuestions: async (docId, text) => {
-    try {
-      const model = new ChatGoogleGenerativeAI({
-        apiKey: process.env.GOOGLE_API_KEY,
-        model: "gemini-flash-latest",
-        maxOutputTokens: 1000,
-        modelMetadata: {
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        },
-      });
 
-      // Lấy 10000 ký tự đầu tiên để tóm tắt
-      const sampleText = text.substring(0, 10000);
-
-      const prompt = `
-        Bạn là một chuyên gia phân tích tài liệu. Dựa vào nội dung tài liệu sau đây:
-        ---
-        ${sampleText}
-        ---
-        Hãy thực hiện (trả về JSON theo cấu trúc yêu cầu):
-        {
-          "summary": "Tóm tắt nội dung chính trong khoảng 3-5 câu (Tiếng Việt).",
-          "questions": ["Đề xuất 3 câu hỏi quan trọng nhất dưới dạng mảng"]
-        }
-      `;
-
-      const response = await model.invoke(prompt);
-      let content = response.content;
-
-      // Extract JSON if it's wrapped in markers or has extra text
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Không tìm thấy dữ liệu JSON trong phản hồi của AI");
-
-      const result = JSON.parse(jsonMatch[0]);
-
-      await Document.findByIdAndUpdate(docId, {
-        summary: result.summary,
-        suggestedQuestions: result.questions,
-      });
-
-      logger.info(`Đã tạo tóm tắt và gợi ý câu hỏi cho tài liệu: ${docId}`);
-    } catch (error) {
-      logger.error(`Lỗi khi tạo tóm tắt cho tài liệu ${docId}:`, error);
-    }
-  },
 };
 
 export default documentService;
