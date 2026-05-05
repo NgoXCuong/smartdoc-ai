@@ -6,8 +6,9 @@ let io;
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: "*",
+      origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "http://localhost:3000",
       methods: ["GET", "POST"],
+      credentials: true,
     },
     transports: ["websocket", "polling"],
     allowEIO3: true // Đôi khi cần cho client cũ

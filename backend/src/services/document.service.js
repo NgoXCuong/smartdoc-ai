@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import Document from "../models/document.model.js";
+import User from "../models/user.model.js";
+import Workspace from "../models/workspace.model.js";
 import logger from "../utils/logger.js";
 import ocrService from "./ocr.service.js";
 import aiService from "./ai.service.js";
@@ -16,11 +18,13 @@ const documentService = {
       fileSize: file.size || file.fileSize,
       fileUrl: file.path || file.fileUrl,
       cloudFileId: file.filename || file.cloudFileId,
+      workspaceId: file.workspaceId || null,
       status: "pending",
     });
   },
 
   processEmbeddings: async (docId) => {
+    const startTime = Date.now();
     try {
       const doc = await Document.findByIdAndUpdate(
         docId,
@@ -200,10 +204,49 @@ const documentService = {
   },
 
 
-  getDocumentByUser: async (userId, page = 1, limit = 10, search = "") => {
-    const query = { userId };
+  getDocumentByUser: async (userId, page = 1, limit = 10, search = "", folderId = null, workspaceId = null) => {
+    // Nếu truyền workspaceId cụ thể
+    if (workspaceId) {
+      // Xác minh quyền
+      const workspace = await Workspace.findOne({
+        _id: workspaceId,
+        $or: [{ ownerId: userId }, { "members.user": userId }],
+      });
+      if (!workspace) throw new Error("Không có quyền truy cập không gian làm việc này");
+      
+      const query = { workspaceId };
+      if (search) {
+        query.fileName = { $regex: search, $options: "i" };
+      }
+      if (folderId && folderId !== 'null') {
+        query.folderId = folderId;
+      } else if (folderId === 'null') {
+        query.folderId = null;
+      }
+
+      const skip = (page - 1) * limit;
+      const [documents, total] = await Promise.all([
+        Document.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+        Document.countDocuments(query),
+      ]);
+
+      return { documents, totalPages: Math.ceil(total / limit), currentPage: Number(page), totalDocuments: total };
+    }
+
+    // Nếu KHÔNG truyền workspaceId (Chế độ Cá nhân)
+    // Thì chỉ lấy tài liệu Cá nhân (workspaceId: null)
+    const query = {
+      $or: [{ userId }, { "sharedWith.user": userId }],
+      workspaceId: null // RẤT QUAN TRỌNG: Lọc riêng tài liệu cá nhân
+    };
     if (search) {
       query.fileName = { $regex: search, $options: "i" };
+    }
+    
+    if (folderId && folderId !== 'null') {
+      query.folderId = folderId;
+    } else if (folderId === 'null') {
+      query.folderId = null;
     }
 
     const skip = (page - 1) * limit;
@@ -225,9 +268,24 @@ const documentService = {
   },
 
   getDocumentById: async (docId, userId) => {
-    const document = await Document.findOne({ _id: docId, userId });
-    if (!document) {
-      throw new Error("Tài liệu không tồn tại hoặc bạn không có quyền xem");
+    const document = await Document.findById(docId);
+    if (!document) throw new Error("Tài liệu không tồn tại");
+
+    let hasAccess = false;
+    if (document.userId.toString() === userId.toString()) hasAccess = true;
+    else if (document.sharedWith.some(s => s.user.toString() === userId.toString())) hasAccess = true;
+    
+    // Nếu tài liệu thuộc Workspace, kiểm tra người dùng có phải thành viên không
+    if (!hasAccess && document.workspaceId) {
+      const workspace = await Workspace.findOne({
+        _id: document.workspaceId,
+        $or: [{ ownerId: userId }, { "members.user": userId }]
+      });
+      if (workspace) hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      throw new Error("Bạn không có quyền xem tài liệu này");
     }
     return document;
   },
@@ -238,13 +296,78 @@ const documentService = {
 
     const collection = mongoose.connection.db.collection('documents');
     const deleteResult = await collection.deleteMany({
-      'metadata.source': new mongoose.Types.ObjectId(docId)
+      source: new mongoose.Types.ObjectId(docId)
     });
 
     logger.info(`Đã xóa ${deleteResult.deletedCount} vector của tài liệu ${docId}`);
     return document;
   },
 
+  shareDocument: async (docId, ownerId, targetEmail, permission) => {
+    const document = await Document.findOne({ _id: docId, userId: ownerId });
+    if (!document) throw new Error("Tài liệu không tồn tại hoặc bạn không có quyền");
+    
+    const targetUser = await User.findOne({ email: targetEmail });
+    if (!targetUser) throw new Error("Người dùng với email này không tồn tại");
+    if (targetUser._id.toString() === ownerId.toString()) throw new Error("Không thể chia sẻ cho chính mình");
+
+    const existingShareIndex = document.sharedWith.findIndex(s => s.user.toString() === targetUser._id.toString());
+    if (existingShareIndex !== -1) {
+      document.sharedWith[existingShareIndex].permission = permission;
+    } else {
+      document.sharedWith.push({ user: targetUser._id, permission });
+    }
+    
+    return await document.save();
+  },
+
+  removeDocumentShare: async (docId, ownerId, targetEmail) => {
+    const document = await Document.findOne({ _id: docId, userId: ownerId });
+    if (!document) throw new Error("Tài liệu không tồn tại hoặc bạn không có quyền");
+    
+    const targetUser = await User.findOne({ email: targetEmail });
+    if (!targetUser) throw new Error("Người dùng không tồn tại");
+
+    document.sharedWith = document.sharedWith.filter(s => s.user.toString() !== targetUser._id.toString());
+    return await document.save();
+  },
+
+  getDocumentText: async (docId, userId) => {
+    // Xác thực quyền truy cập
+    const document = await Document.findById(docId);
+    if (!document) throw new Error("Tài liệu không tồn tại");
+
+    let hasAccess = false;
+    if (document.userId.toString() === userId.toString()) hasAccess = true;
+    else if (document.sharedWith.some(s => s.user.toString() === userId.toString())) hasAccess = true;
+    
+    // Nếu tài liệu thuộc Workspace, kiểm tra người dùng có phải thành viên không
+    if (!hasAccess && document.workspaceId) {
+      const workspace = await Workspace.findOne({
+        _id: document.workspaceId,
+        $or: [{ ownerId: userId }, { "members.user": userId }]
+      });
+      if (workspace) hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      throw new Error("Bạn không có quyền truy cập văn bản của tài liệu này");
+    }
+
+    // Lấy nội dung từ Vector DB
+    const collection = mongoose.connection.db.collection('documents');
+    const chunks = await collection.find({ source: new mongoose.Types.ObjectId(docId) }).toArray();
+    
+    if (!chunks || chunks.length === 0) {
+      throw new Error("Không tìm thấy nội dung văn bản cho tài liệu này");
+    }
+
+    // Sắp xếp theo trang nếu có metadata
+    chunks.sort((a, b) => (a.metadata?.pageNumber || 0) - (b.metadata?.pageNumber || 0));
+    
+    const fullText = chunks.map(c => c.text).join("\n");
+    return fullText;
+  }
 
 };
 

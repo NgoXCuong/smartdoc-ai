@@ -9,13 +9,25 @@ const folderSchema = new mongoose.Schema(
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "user",
       required: true,
+    },
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      default: null,
     },
     color: {
       type: String,
       default: "#2563eb",
     },
+    sharedWith: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        permission: { type: String, enum: ["view", "chat"], default: "view" },
+        addedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

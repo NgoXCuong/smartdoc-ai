@@ -5,13 +5,18 @@ const documentSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
-      require: true,
+      required: true,
     },
-    fileName: { type: String, require: true, trim: true },
-    fileType: { type: String, require: true },
-    fileSize: { type: Number, require: true },
-    fileUrl: { type: String, require: true },
-    cloudFileId: { type: String, require: true },
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      default: null,
+    },
+    fileName: { type: String, required: true, trim: true },
+    fileType: { type: String, required: true },
+    fileSize: { type: Number, required: true, min: 0 },
+    fileUrl: { type: String, required: true },
+    cloudFileId: { type: String, required: true },
     folderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Folder",
@@ -28,12 +33,19 @@ const documentSchema = new mongoose.Schema(
     summary: { type: String, default: null },
     suggestedQuestions: [{ type: String }],
     errorMessage: { type: String, default: null },
+    sharedWith: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
+        permission: { type: String, enum: ["view", "chat"], default: "view" },
+        addedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 );
 
 documentSchema.index({ userId: 1, createAt: -1 });
 
-const Document = mongoose.model("document", documentSchema);
+const Document = mongoose.model("document", documentSchema, "file_metadata");
 
 export default Document;

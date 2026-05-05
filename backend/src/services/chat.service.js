@@ -4,8 +4,10 @@ import {
 } from "@langchain/google-genai";
 import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
 import mongoose from "mongoose";
+import Document from "../models/document.model.js";
 import Message from "../models/message.model.js";
 import ChatSession from "../models/chatSession.model.js";
+import Workspace from "../models/workspace.model.js";
 import logger from "../utils/logger.js";
 import { logUsage } from "../config/usage.js";
 
@@ -112,7 +114,7 @@ const chatService = {
     return finalChunks;
   },
 
-  generateAnswer: async (question, chunks, history = []) => {
+  generateAnswer: async (question, chunks, history = [], webContext = null) => {
     if (!process.env.GOOGLE_API_KEY) {
       throw new Error("GOOGLE_API_KEY is missing in environment variables");
     }
@@ -140,6 +142,15 @@ const chatService = {
       )
       .join("\n\n---\n\n");
 
+    let webContextSection = "";
+    if (webContext) {
+      webContextSection = `
+    NỘI DUNG TÌM KIẾM TRÊN WEB (BỔ SUNG):
+    ---
+    ${webContext}
+    ---`;
+    }
+
     const prompt = `
     Bạn là một trợ lý ảo thông minh chuyên phân tích tài liệu.
     
@@ -148,18 +159,20 @@ const chatService = {
     ${formattedHistory || "Chưa có lịch sử hội thoại."}
     ---
 
-    NỘI DUNG TRÍCH XUẤT TỪ TÀI LIỆU (NGỮ CẢNH):
+    NỘI DUNG TRÍCH XUẤT TỪ TÀI LIỆU (NGỮ CẢNH CHÍNH):
     ---
     ${context}
     ---
+    ${webContextSection}
 
     CÂU HỎI HIỆN TẠI: "${question}"
     
     YÊU CẦU:
-    1. Trả lời câu hỏi một cách trung thực, đầy đủ và chi tiết dựa vào Ngữ cảnh và Lịch sử hội thoại.
+    1. Trả lời câu hỏi một cách trung thực, đầy đủ và chi tiết dựa vào Ngữ cảnh từ Tài liệu và Lịch sử hội thoại.
     2. LUÔN trích dẫn nguồn theo định dạng [X, trang Y] ở cuối câu hoặc đoạn liên quan (Ví dụ: [1, trang 5]).
-    3. Nếu nội dung không có thông tin này, hãy nói rằng "Tôi không tìm thấy thông tin trong tài liệu".
-    4. Trình bày bằng Tiếng Việt rõ ràng.
+    3. Nếu nội dung không có trong Tài liệu, bạn CÓ THỂ sử dụng thông tin từ TÌM KIẾM TRÊN WEB (nếu có) để trả lời, nhưng PHẢI trích dẫn rõ nguồn web (Ví dụ: [Web: Tên trang]).
+    4. Nếu không có thông tin từ cả 2 nguồn, hãy nói rằng "Tôi không tìm thấy thông tin".
+    5. Trình bày bằng Tiếng Việt rõ ràng.
   `;
 
     try {
@@ -175,7 +188,7 @@ const chatService = {
     }
   },
 
-  generateStreamingAnswer: async (question, chunks, history = []) => {
+  generateStreamingAnswer: async (question, chunks, history = [], webContext = null) => {
     if (!process.env.GOOGLE_API_KEY) {
       throw new Error("GOOGLE_API_KEY is missing");
     }
@@ -200,6 +213,15 @@ const chatService = {
       })
       .join("\n\n---\n\n");
 
+    let webContextSection = "";
+    if (webContext) {
+      webContextSection = `
+    NỘI DUNG TÌM KIẾM TRÊN WEB (BỔ SUNG):
+    ---
+    ${webContext}
+    ---`;
+    }
+
     const prompt = `
     Bạn là một trợ lý ảo thông minh chuyên phân tích tài liệu.
     
@@ -208,24 +230,55 @@ const chatService = {
     ${formattedHistory || "Chưa có lịch sử hội thoại."}
     ---
 
-    NỘI DUNG TRÍCH XUẤT TỪ TÀI LIỆU (NGỮ CẢNH):
+    NỘI DUNG TRÍCH XUẤT TỪ TÀI LIỆU (NGỮ CẢNH CHÍNH):
     ---
     ${context}
     ---
+    ${webContextSection}
 
     CÂU HỎI HIỆN TẠI: "${question}"
     
     YÊU CẦU:
-    1. Trả lời câu hỏi một cách trung thực, đầy đủ và chi tiết dựa vào Ngữ cảnh và Lịch sử hội thoại.
+    1. Trả lời câu hỏi một cách trung thực, đầy đủ và chi tiết dựa vào Ngữ cảnh từ Tài liệu và Lịch sử hội thoại.
     2. LUÔN trích dẫn nguồn theo định dạng [X, trang Y] ở cuối câu hoặc đoạn liên quan (Ví dụ: [1, trang 5]).
-    3. Nếu nội dung không có thông tin này, hãy nói rằng "Tôi không tìm thấy thông tin trong tài liệu".
-    4. Trình bày bằng Tiếng Việt rõ ràng.
+    3. Nếu nội dung không có trong Tài liệu, bạn CÓ THỂ sử dụng thông tin từ TÌM KIẾM TRÊN WEB (nếu có) để trả lời, nhưng PHẢI trích dẫn rõ nguồn web (Ví dụ: [Web: Tên trang]).
+    4. Nếu không có thông tin từ cả 2 nguồn, hãy nói rằng "Tôi không tìm thấy thông tin".
+    5. Trình bày bằng Tiếng Việt rõ ràng.
     `;
 
     return await model.stream(prompt);
   },
 
   prepareAsk: async (question, docIds, userId, sessionId = null) => {
+    // Permission check
+    for (const docId of docIds) {
+      const doc = await Document.findById(docId);
+      if (!doc) throw new Error("Tài liệu không tồn tại");
+
+      let hasAccess = false;
+      if (doc.userId.toString() === userId.toString()) {
+        hasAccess = true;
+      } else {
+        const isShared = doc.sharedWith && doc.sharedWith.some(s => 
+          s.user.toString() === userId.toString() && s.permission === "chat"
+        );
+        if (isShared) hasAccess = true;
+        
+        // Kiểm tra quyền từ Workspace
+        if (!hasAccess && doc.workspaceId) {
+          const workspace = await Workspace.findOne({
+            _id: doc.workspaceId,
+            $or: [{ ownerId: userId }, { "members.user": userId }]
+          });
+          if (workspace) hasAccess = true;
+        }
+      }
+
+      if (!hasAccess) {
+        throw new Error("Bạn không có quyền chat với tài liệu này");
+      }
+    }
+
     let currentSessionId = sessionId;
     if (!currentSessionId) {
       const newSession = await ChatSession.create({
@@ -273,6 +326,34 @@ const chatService = {
     });
   },
 
+  performWebSearch: async (query) => {
+    if (!process.env.TAVILY_API_KEY) {
+      logger.warn("TAVILY_API_KEY is not set. Skipping web search.");
+      return null;
+    }
+    try {
+      const response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: process.env.TAVILY_API_KEY,
+          query: query,
+          search_depth: "basic",
+          include_answer: true,
+          max_results: 3
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`Tavily API responded with ${response.status}`);
+      }
+      const data = await response.json();
+      return data.results.map(r => `[Web: ${r.title}](${r.url}): ${r.content}`).join("\n\n");
+    } catch (error) {
+      logger.error("[ChatService] Web search failed:", error);
+      return null;
+    }
+  },
+
   askDocument: async (question, docIds, userId, sessionId = null) => {
     const { sessionId: currentSessionId, chunks } = await chatService.prepareAsk(question, docIds, userId, sessionId);
     
@@ -282,7 +363,9 @@ const chatService = {
       .limit(6);
     history.reverse();
 
-    const apiResponse = await chatService.generateAnswer(question, chunks, history);
+    const webContext = await chatService.performWebSearch(question);
+
+    const apiResponse = await chatService.generateAnswer(question, chunks, history, webContext);
 
     await chatService.saveChatMessages(question, apiResponse, chunks, userId, currentSessionId);
 
