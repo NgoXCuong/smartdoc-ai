@@ -30,3 +30,6 @@ Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
+
+scratch/
+./scratch

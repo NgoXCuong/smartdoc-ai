@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+}
+
+:root {
+  /* Premium Light Theme */
+  --background: #f8fafc;
+  --foreground: oklch(25% 0 0); /* Dark slate for text */
+  
+  --primary: #2563eb;
+  --primary-foreground: oklch(99% 0 0);
+  
+  --secondary: oklch(95% 0.01 260); /* Very light blue-ish grey */
+  --secondary-foreground: oklch(25% 0 0);
+  
+  --muted: oklch(97% 0.005 260); /* Soft background for cards/sidebars */
+  --muted-foreground: oklch(55% 0 0);
+  
+  --accent: oklch(95% 0.05 260); /* Slightly stronger than muted */
+  --accent-foreground: oklch(40% 0.2 260);
+  
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #2563eb;
+
+  --destructive: oklch(55% 0.2 20); /* Red */
+  --destructive-foreground: oklch(99% 0 0);
+  
+  --success: oklch(60% 0.15 150); /* Green */
+  --success-foreground: oklch(99% 0 0);
+  
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom Scrollbar for a premium feel */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/60 backdrop-blur-xl border border-white/40 shadow-sm;
+  }
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-border/50 shadow-sm rounded-2xl;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+}
