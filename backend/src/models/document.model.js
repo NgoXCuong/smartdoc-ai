@@ -44,7 +44,7 @@ const documentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-documentSchema.index({ userId: 1, createAt: -1 });
+documentSchema.index({ userId: 1, createdAt: -1 });
 
 const Document = mongoose.model("document", documentSchema, "file_metadata");
 

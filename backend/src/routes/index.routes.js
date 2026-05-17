@@ -5,6 +5,7 @@ import chatRouter from "./chat.routes.js";
 import adminRoutes from "./admin.routes.js";
 import folderRoutes from "./folder.routes.js";
 import workspaceRoutes from "./workspace.routes.js";
+import usageRoutes from "./usage.routes.js";
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.use("/chat", chatRouter);
 router.use("/admin", adminRoutes);
 router.use("/folders", folderRoutes);
 router.use("/workspaces", workspaceRoutes);
+router.use("/usage", usageRoutes);
 
 export default router;

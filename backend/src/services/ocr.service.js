@@ -11,7 +11,7 @@ const ocrService = {
       const { data: { text } } = await Tesseract.recognize(
         imageBuffer,
         'vie+eng', // Hỗ trợ nhận diện cả Tiếng Việt và Tiếng Anh
-        { 
+        {
           // logger: m => console.log(m) 
         }
       );
@@ -30,7 +30,7 @@ const ocrService = {
     try {
       logger.info("Đang bắt đầu chuyển đổi PDF sang hình ảnh để OCR...");
       const { pdfToPng } = await import('pdf-to-png-converter');
-      
+
       // Chuyển đổi PDF sang mảng các hình ảnh (PNG)
       const outputImages = await pdfToPng(pdfBuffer, {
         viewportScale: 2.0, // Tăng độ phân giải để OCR chính xác hơn

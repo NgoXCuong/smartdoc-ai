@@ -10,7 +10,7 @@ export const registerSchema = z.object({
 
   password: z
     .string()
-    .min(6, "Password phải có ít nhất 6 ký tự")
+    .min(8, "Password phải có  ít nhất 6 ký tự")
     .max(100, "Password không được vượt quá 100 ký tự"),
 });
 
@@ -23,15 +23,15 @@ export const changePasswordSchema = z
   .object({
     oldPassword: z
       .string()
-      .min(6, "Password phải có ít nhất 6 ký tự")
+      .min(8, "Password phải có  ít nhất 8 ký tự")
       .max(100, "Password không được vượt quá 100 ký tự"),
     newPassword: z
       .string()
-      .min(6, "Password mới phải có ít nhất 6 ký tự")
+      .min(8, "Password mới phải có  ít nhất 8 ký tự")
       .max(100, "Password mới không được vượt quá 100 ký tự"),
     confirmPassword: z
       .string()
-      .min(6, "Xác nhận password phải có ít nhất 6 ký tự"),
+      .min(8, "Xác nhận password phải có  ít nhất 8 ký tự"),
   })
   // 1. Kiểm tra mật khẩu mới không được trùng với mật khẩu cũ
   .refine((data) => data.newPassword !== data.oldPassword, {

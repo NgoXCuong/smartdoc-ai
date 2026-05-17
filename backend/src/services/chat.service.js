@@ -374,6 +374,7 @@ const chatService = {
       message: apiResponse,
       sources: chunks.map((c, i) => ({
         index: i + 1,
+        docId: c.metadata?.source || c.source,
         fileName: c.metadata?.fileName || c.fileName,
         pageNumber: c.metadata?.pageNumber || c.pageNumber,
       })),
