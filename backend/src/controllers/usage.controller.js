@@ -46,6 +46,10 @@ export const getMeUsage = asyncHandler(async (req, res) => {
     totalDocs,
     totalStorageBytes: totalStorage[0]?.totalSize || 0,
     stats,
-    timeline: last7Days
+    timeline: last7Days,
+    quota: {
+      maxTokens: 100000,
+      maxStorageBytes: 1073741824 // 1GB
+    }
   });
 });

@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user" },
     isActive: { type: Boolean, default: true },
+    avatarUrl: { type: String, default: "" },
+    cloudAvatarId: { type: String, default: "" },
     refreshTokens: [{ type: String }],
 
     // Quên mật khâu và reset

@@ -1,6 +1,5 @@
 import React from 'react';
-import { FileText, CheckCircle2, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface StatsOverviewProps {
   user: any;
@@ -12,46 +11,50 @@ interface StatsOverviewProps {
 export default function StatsOverview({ user, documentsLength, completedDocs, processingDocs }: StatsOverviewProps) {
   return (
     <>
-      <div className="mb-10">
-        <h1 className="text-3xl font-extrabold mb-2 tracking-tight text-slate-900">
-          Xin chào, <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-500">{user?.username}</span>! 👋
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-2 text-slate-800">
+          Xin chào, {user?.username}! 👋
         </h1>
-        <p className="text-slate-500 text-base font-medium">Quản lý và hội thoại thông minh với tài liệu của bạn.</p>
+        <p className="text-slate-500 text-[13px] font-medium">Quản lý và hội thoại thông minh với tài liệu của bạn.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <StatsCard
-          icon={<FileText className="text-indigo-600" size={24} />}
-          bg="bg-indigo-50"
-          label="Tổng tài liệu"
+          icon={<div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center"><FileText size={20} /></div>}
+          title="Tổng tài liệu"
           value={documentsLength.toString()}
+          label="Trong 30 ngày"
+          labelClass="text-slate-500"
         />
         <StatsCard
-          icon={<CheckCircle2 className="text-emerald-600" size={24} />}
-          bg="bg-emerald-50"
-          label="Đã hoàn thành"
+          icon={<div className="w-10 h-10 bg-green-50 text-green-500 rounded-lg flex items-center justify-center"><CheckCircle2 size={20} /></div>}
+          title="Đã hoàn thành"
           value={completedDocs.toString()}
+          label="100%"
+          labelClass="text-green-500 font-bold"
         />
         <StatsCard
-          icon={<Loader2 className="text-amber-500 animate-spin" size={24} />}
-          bg="bg-amber-50"
-          label="Đang xử lý"
+          icon={<div className="w-10 h-10 bg-slate-50 text-slate-500 rounded-lg flex items-center justify-center"><RefreshCw size={20} /></div>}
+          title="Đang xử lý"
           value={processingDocs.toString()}
+          label="Chờ xử lý"
+          labelClass="text-slate-500"
         />
       </div>
     </>
   );
 }
 
-function StatsCard({ icon, label, value, bg }: { icon: React.ReactNode, label: string, value: string, bg: string }) {
+function StatsCard({ icon, title, value, label, labelClass }: { icon: React.ReactNode, title: string, value: string, label: string, labelClass: string }) {
   return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-100 flex items-center gap-5 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 group cursor-default">
-      <div className={cn("w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 duration-300", bg)}>
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col justify-between h-[130px] hover:shadow-sm transition-shadow">
+      <div className="flex justify-between items-start">
         {icon}
+        <span className={`text-[11px] font-semibold ${labelClass}`}>{label}</span>
       </div>
       <div>
-        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-3xl font-black text-slate-800 tracking-tight">{value}</p>
+        <p className="text-[12px] font-semibold text-slate-500 mb-1">{title}</p>
+        <p className="text-3xl font-bold text-slate-800 leading-none">{value}</p>
       </div>
     </div>
   );

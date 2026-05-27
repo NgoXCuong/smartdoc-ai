@@ -139,3 +139,70 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     message: "Xác thực Email thành công! Bạn có thể đăng nhập ngay bây giờ",
   });
 });
+
+import storageService from "../services/storage.service.js";
+import User from "../models/user.model.js";
+
+export const uploadAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, "Vui lòng chọn một ảnh để tải lên");
+  }
+
+  const userId = req.user.userId;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(404, "Không tìm thấy người dùng");
+  }
+
+  // Xóa ảnh cũ trên Supabase nếu có
+  if (user.cloudAvatarId) {
+    try {
+      await storageService.deleteDocument(user.cloudAvatarId);
+    } catch (err) {
+      console.error("Lỗi khi xóa ảnh đại diện cũ:", err);
+    }
+  }
+
+  // Upload ảnh mới
+  const uploadResult = await storageService.uploadDocument(req.file);
+
+  // Cập nhật Database
+  user.avatarUrl = uploadResult.fileUrl;
+  user.cloudAvatarId = uploadResult.cloudFileId;
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Cập nhật ảnh đại diện thành công",
+    user,
+  });
+});
+
+export const removeAvatar = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(404, "Không tìm thấy người dùng");
+  }
+
+  if (user.cloudAvatarId) {
+    try {
+      await storageService.deleteDocument(user.cloudAvatarId);
+    } catch (err) {
+      console.error("Lỗi khi xóa ảnh đại diện cũ:", err);
+      throw new ApiError(500, "Lỗi khi xóa ảnh đại diện");
+    }
+  }
+
+  user.avatarUrl = "";
+  user.cloudAvatarId = "";
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Gỡ ảnh đại diện thành công",
+    user,
+  });
+});

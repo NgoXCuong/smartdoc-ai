@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { chatApi, documentApi, folderApi, workspaceApi } from "@/services/api";
 import { toast } from "react-hot-toast";
+import { FileText, TrendingUp, AlertTriangle, Globe, Bot } from "lucide-react";
 
 // Extracted Components
 import ChatSidebar from "@/components/chat/ChatSidebar";
@@ -285,14 +286,65 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
           <div className="max-w-3xl mx-auto space-y-6 pb-4">
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center mt-20">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
-                  <span className="text-3xl">🤖</span>
+              <div className="h-full flex flex-col items-center justify-center mt-10 md:mt-20">
+                <div className="w-24 h-24 bg-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] rounded-3xl flex items-center justify-center mb-8">
+                  <Bot size={48} className="text-blue-600" />
                 </div>
-                <h3 className="text-xl font-bold mb-2 text-foreground">Bạn cần giúp gì?</h3>
-                <p className="text-muted-foreground max-w-md">
-                  Hãy chọn tài liệu ở cột bên trái và đặt câu hỏi. Tôi sẽ đọc nội dung và trả lời kèm theo trích dẫn cụ thể.
+                
+                <h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-4 tracking-tight">How can I help you today?</h2>
+                <p className="text-slate-500 max-w-xl text-center mb-12">
+                  Ask questions about your uploaded documents, generate summaries, or extract specific data using the power of SmartDoc AI.
                 </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
+                  {/* Card 1 */}
+                  <button 
+                    onClick={() => setInput("Summarize Documents")}
+                    className="p-5 text-left border border-slate-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all bg-white group"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <FileText size={18} />
+                      <span className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Summarize Documents</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">Get a concise high-level overview of all active reference files.</p>
+                  </button>
+
+                  {/* Card 2 */}
+                  <button 
+                    onClick={() => setInput("Extract Key Findings")}
+                    className="p-5 text-left border border-slate-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all bg-white group"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <TrendingUp size={18} />
+                      <span className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Extract Key Findings</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">Identify the most important data points and strategic takeaways.</p>
+                  </button>
+
+                  {/* Card 3 */}
+                  <button 
+                    onClick={() => setInput("Check Inconsistencies")}
+                    className="p-5 text-left border border-slate-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all bg-white group"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <AlertTriangle size={18} />
+                      <span className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Check Inconsistencies</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">Analyze documents to find conflicting information or errors.</p>
+                  </button>
+
+                  {/* Card 4 */}
+                  <button 
+                    onClick={() => setInput("Translate Content")}
+                    className="p-5 text-left border border-slate-200 rounded-2xl hover:border-blue-300 hover:shadow-md transition-all bg-white group"
+                  >
+                    <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <Globe size={18} />
+                      <span className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Translate Content</span>
+                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">Convert the analysis into multiple languages while preserving context.</p>
+                  </button>
+                </div>
               </div>
             ) : (
               messages.map((msg, idx) => (

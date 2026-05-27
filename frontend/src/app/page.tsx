@@ -43,6 +43,14 @@ export default function Dashboard() {
     }
   }, [currentWorkspaceId, user]);
 
+  useEffect(() => {
+    const handleTriggerUpload = () => {
+      document.getElementById('global-upload-input')?.click();
+    };
+    window.addEventListener('trigger-upload', handleTriggerUpload);
+    return () => window.removeEventListener('trigger-upload', handleTriggerUpload);
+  }, []);
+
   const socket = useSocket(user?._id || user?.id || null);
 
   useEffect(() => {
@@ -56,8 +64,22 @@ export default function Dashboard() {
         fetchDocuments(false, currentWorkspaceId); // background refresh
       });
 
+      socket.on("document_progress", (data) => {
+        setDocuments((prevDocs) =>
+          prevDocs.map((doc) =>
+            doc._id === data.docId
+              ? { ...doc, progress: data.progress, status: data.status }
+              : doc
+          )
+        );
+        if (data.status === "completed") {
+          fetchDocuments(false, currentWorkspaceId); // Refresh to get tags & summary
+        }
+      });
+
       return () => {
         socket.off("document_status");
+        socket.off("document_progress");
       };
     }
   }, [socket, currentWorkspaceId]);
@@ -153,8 +175,6 @@ export default function Dashboard() {
         workspaces={workspaces}
         currentWorkspaceId={currentWorkspaceId}
         setCurrentWorkspaceId={setCurrentWorkspaceId}
-        uploading={uploading}
-        handleFileUpload={handleFileUpload}
       />
 
       <div className="flex-1 overflow-y-auto p-10 bg-slate-50/50 relative">
@@ -165,7 +185,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto"
+          className="max-w-[1200px] mx-auto"
         >
           <StatsOverview
             user={user}
@@ -185,8 +205,44 @@ export default function Dashboard() {
               setIsMoveModalOpen(true);
             }}
           />
+
+          {/* Bottom Feature Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="col-span-2 bg-[#0A47B7] rounded-2xl p-8 relative overflow-hidden text-white flex flex-col items-start justify-center shadow-md">
+              <h2 className="text-[22px] font-bold mb-2">Trò chuyện với văn bản</h2>
+              <p className="text-blue-100/90 mb-6 text-[13px] max-w-sm leading-relaxed">
+                Sử dụng AI để tóm tắt, tìm kiếm thông tin và phân tích tài liệu của bạn trong vài giây.
+              </p>
+              <button className="bg-white text-[#0A47B7] px-6 py-2.5 rounded-full font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors z-10">
+                Bắt đầu ngay
+              </button>
+            </div>
+
+            <div className="col-span-1 bg-[#F0F5FF] rounded-2xl p-7 flex flex-col justify-center">
+              <h3 className="text-[15px] font-bold text-slate-800 mb-6">Dung lượng lưu trữ</h3>
+              <div className="w-full h-1.5 bg-blue-200/50 rounded-full mb-3 overflow-hidden">
+                <div className="h-full bg-blue-600 rounded-full" style={{ width: '25%' }}></div>
+              </div>
+              <div className="flex justify-between items-center text-[11px] font-semibold mb-6">
+                <span className="text-slate-600">250MB đã dùng</span>
+                <span className="text-slate-400">1GB tổng cộng</span>
+              </div>
+              <button className="w-full bg-transparent border border-blue-200 text-blue-600 hover:bg-blue-100/50 py-2.5 rounded-full font-bold text-sm transition-colors">
+                Nâng cấp dung lượng
+              </button>
+            </div>
+          </div>
         </motion.div>
       </div>
+
+      <input
+        type="file"
+        id="global-upload-input"
+        className="hidden"
+        accept=".pdf,.doc,.docx,.txt,.md,image/*"
+        onChange={handleFileUpload}
+        disabled={uploading}
+      />
 
       <MoveDocumentModal
         isOpen={isMoveModalOpen}

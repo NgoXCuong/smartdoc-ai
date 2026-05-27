@@ -224,8 +224,9 @@ const authService = {
       },
     });
 
-    // Tạo URL dẫn tới Frontend
-    const resetUrl = `${process.env.FRONTEND_URL}/api/auth/reset-password?token=${resetToken}`;
+    // Tạo URL dẫn tới trang Frontend đặt lại mật khẩu
+    // Route Next.js: /auth/reset-password/[token]
+    const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password/${resetToken}`;
 
     const mailOptions = {
       from: `"Smart Document AI Support" <${process.env.EMAIL_USER}>`,

@@ -12,7 +12,7 @@ export const standardLimiter = rateLimit({
   handler: (req, res, next) => {
     throw new ApiError(
       429,
-      "Too many requests from this IP, please try again after 15 minutes",
+      "Đã thử quá nhiều lần, vui lòng thử lại sau 15 phút",
     );
   },
 });
@@ -28,7 +28,7 @@ export const authLimiter = rateLimit({
   handler: (req, res, next) => {
     throw new ApiError(
       429,
-      "Too many attempts, please try again after an hour",
+      "Đã thử quá nhiều lần, vui lòng thử lại sau một giờ.",
     );
   },
 });

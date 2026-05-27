@@ -1,19 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Settings, 
   User, 
   Lock, 
-  Mail, 
   Save,
   Loader2,
   ShieldCheck,
   Zap,
   HardDrive,
   Database,
-  Calendar
+  Calendar,
+  Image as ImageIcon,
+  Trash2,
+  UploadCloud,
+  ChevronRight,
+  Mail
 } from "lucide-react";
 import { authApi, usageApi } from "@/services/api";
 import {
@@ -30,6 +34,7 @@ import { toast } from "react-hot-toast";
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [passwordData, setPasswordData] = useState({
     oldPassword: "",
     newPassword: "",
@@ -37,25 +42,27 @@ export default function SettingsPage() {
   });
   const [usageData, setUsageData] = useState<any>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     setIsMounted(true);
-    const userStr = localStorage.getItem("user");
-    if (!userStr) {
-      router.push("/auth");
-    } else {
-      setUser(JSON.parse(userStr));
-      fetchUsage();
-    }
+    fetchData();
   }, [router]);
 
-  const fetchUsage = async () => {
+  const fetchData = async () => {
     try {
-      const res = await usageApi.getMe();
-      setUsageData(res.data);
+      const userRes = await authApi.getMe();
+      setUser(userRes.data.user);
+      localStorage.setItem("user", JSON.stringify(userRes.data.user));
+
+      const usageRes = await usageApi.getMe();
+      setUsageData(usageRes.data);
     } catch (error) {
-      console.error("Lỗi khi tải thông tin sử dụng:", error);
+      console.error("Lỗi khi tải dữ liệu:", error);
+      if (!localStorage.getItem("user")) {
+        router.push("/auth");
+      }
     }
   };
 
@@ -84,179 +91,282 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Vui lòng chọn file hình ảnh (jpg, png...)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ảnh đại diện không được vượt quá 5MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    const toastId = toast.loading("Đang tải ảnh lên...");
+
+    try {
+      const res = await authApi.uploadAvatar(file);
+      setUser(res.data.user);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      toast.success("Cập nhật ảnh đại diện thành công!", { id: toastId });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi tải ảnh lên", { id: toastId });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user?.avatarUrl) return;
+
+    setUploadingAvatar(true);
+    const toastId = toast.loading("Đang gỡ ảnh...");
+    try {
+      const res = await authApi.removeAvatar();
+      setUser(res.data.user);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      toast.success("Đã gỡ ảnh đại diện!", { id: toastId });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Lỗi khi gỡ ảnh", { id: toastId });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   if (!user) return null;
+
+  const usedTokens = usageData?.stats?.reduce((acc: number, curr: any) => acc + curr.totalTokens, 0) || 0;
+  const maxTokens = usageData?.quota?.maxTokens || 100000;
+  const tokenPercent = Math.min((usedTokens / maxTokens) * 100, 100);
+
+  const usedStorage = usageData?.totalStorageBytes || 0;
+  const maxStorage = usageData?.quota?.maxStorageBytes || 1073741824; // 1GB
+  const storagePercent = Math.min((usedStorage / maxStorage) * 100, 100);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    return mb < 1000 ? `${mb.toFixed(2)} MB` : `${(mb / 1024).toFixed(2)} GB`;
+  };
+
+  const tokenThisWeek = usageData?.timeline?.reduce((acc: number, curr: any) => acc + curr.tokens, 0) || 0;
 
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 h-full">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <Settings size={28} />
-          </div>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Cài đặt tài khoản</h1>
-            <p className="text-muted-foreground">Quản lý thông tin cá nhân và bảo mật.</p>
+            <h1 className="text-3xl font-bold text-slate-800">Cài đặt tài khoản</h1>
+            <p className="text-slate-500 mt-1">Quản lý thông tin cá nhân, bảo mật và tài nguyên hệ thống.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Cột thông tin cá nhân */}
-          <div className="md:col-span-1 space-y-6">
-            <div className="bg-white border border-border p-6 rounded-2xl shadow-sm text-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 shadow-inner">
-                {user.username?.charAt(0).toUpperCase()}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* CỘT TRÁI - 7/12 */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Card Profile */}
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-6">
+              <div className="relative group shrink-0">
+                <div className="w-28 h-28 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center text-blue-600 font-bold text-4xl shadow-inner border border-slate-100">
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    user.username?.charAt(0).toUpperCase()
+                  )}
+                </div>
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-2xl backdrop-blur-sm">
+                    <Loader2 className="animate-spin text-blue-600" size={24} />
+                  </div>
+                )}
               </div>
-              <h2 className="text-xl font-bold text-foreground">{user.username}</h2>
-              <p className="text-sm text-muted-foreground mb-4">{user.email}</p>
               
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-success/10 text-success text-xs font-bold uppercase tracking-wider">
-                <ShieldCheck size={14} />
-                {user.role}
+              <div className="flex-1 text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-1">
+                  <h2 className="text-2xl font-bold text-slate-800">{user.username}</h2>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase tracking-wide">
+                    {user.role}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center sm:justify-start gap-2 text-slate-500 mb-5">
+                  <Mail size={16} />
+                  <span>{user.email}</span>
+                </div>
+                
+                <div className="flex items-center justify-center sm:justify-start gap-3">
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                  <button onClick={handleAvatarClick} disabled={uploadingAvatar} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    <UploadCloud size={16} /> Đổi ảnh đại diện
+                  </button>
+                  <button onClick={handleRemoveAvatar} disabled={uploadingAvatar || !user.avatarUrl} className="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-50 hover:text-red-600 transition-colors disabled:opacity-50">
+                    Gỡ bỏ
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="bg-white border border-border p-6 rounded-2xl shadow-sm">
-              <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
-                <User size={18} className="text-primary"/> Thông tin
+            {/* Card Personal Info */}
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+              <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <User size={18} className="text-blue-600" /> Thông tin cá nhân
               </h3>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Tên hiển thị</p>
-                  <p className="font-medium">{user.username}</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 px-1">Tên hiển thị</label>
+                  <input type="text" readOnly value={user.username} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none text-slate-700" />
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Email đăng nhập</p>
-                  <p className="font-medium">{user.email}</p>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 px-1">Địa chỉ Email</label>
+                  <input type="text" readOnly value={user.email} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none text-slate-700" />
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Ngày tham gia</p>
-                  <p className="font-medium">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700 px-1">Vai trò</label>
+                <div className="relative">
+                  <input type="text" readOnly value={user.role === 'admin' ? 'Quản trị viên hệ thống (Admin)' : 'Người dùng tiêu chuẩn'} className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-4 pr-10 outline-none text-slate-600 italic" />
+                  <Lock className="absolute right-3 top-3 text-slate-400" size={18} />
                 </div>
               </div>
             </div>
 
-            {usageData && (
-              <div className="bg-white border border-border p-6 rounded-2xl shadow-sm space-y-4">
-                <h3 className="font-bold text-foreground flex items-center gap-2">
-                  <Database size={18} className="text-primary"/> Tài nguyên đã dùng
-                </h3>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Zap size={16} className="text-amber-500" />
-                    <span className="text-muted-foreground">Token AI</span>
-                  </div>
-                  <span className="font-bold text-slate-800">
-                    {usageData.stats?.reduce((acc: number, curr: any) => acc + curr.totalTokens, 0).toLocaleString() || 0}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <HardDrive size={16} className="text-blue-500" />
-                    <span className="text-muted-foreground">Lưu trữ</span>
-                  </div>
-                  <span className="font-bold text-slate-800">
-                    {(usageData.totalStorageBytes / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Save size={16} className="text-green-500" />
-                    <span className="text-muted-foreground">Tài liệu</span>
-                  </div>
-                  <span className="font-bold text-slate-800">{usageData.totalDocs} file</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Cột bảo mật */}
-          <div className="md:col-span-2">
-            <div className="bg-white border border-border p-6 rounded-2xl shadow-sm">
-              <h3 className="font-bold text-foreground mb-6 flex items-center gap-2 text-xl">
-                <Lock size={22} className="text-primary"/> Đổi mật khẩu
+            {/* Card Security & Password */}
+            <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+              <h3 className="font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <ShieldCheck size={18} className="text-blue-600" /> Bảo mật & Mật khẩu
               </h3>
               
-              <form onSubmit={handleChangePassword} className="space-y-4">
+              <form onSubmit={handleChangePassword} className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium px-1 text-foreground">Mật khẩu hiện tại</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-muted-foreground" size={18} />
-                    <input
-                      type="password"
-                      required
-                      placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-border rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-primary focus:bg-white transition-colors"
-                      value={passwordData.oldPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
-                    />
-                  </div>
+                  <label className="text-sm font-medium text-slate-700 px-1">Mật khẩu hiện tại</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="••••••••"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    value={passwordData.oldPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                  />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium px-1 text-foreground">Mật khẩu mới</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-muted-foreground" size={18} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 px-1">Mật khẩu mới</label>
                     <input
                       type="password"
                       required
                       minLength={6}
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-border rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-primary focus:bg-white transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                       value={passwordData.newPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium px-1 text-foreground">Xác nhận mật khẩu mới</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 text-muted-foreground" size={18} />
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 px-1">Xác nhận mật khẩu mới</label>
                     <input
                       type="password"
                       required
                       minLength={6}
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-border rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-primary focus:bg-white transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                       value={passwordData.confirmPassword}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                     />
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-2 flex justify-end">
                   <button
                     type="submit"
                     disabled={loading || !passwordData.oldPassword || !passwordData.newPassword}
-                    className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md shadow-primary/20 disabled:opacity-50"
+                    className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-md shadow-blue-600/20 disabled:opacity-50"
                   >
-                    {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {loading ? <Loader2 className="animate-spin" size={18} /> : null}
                     Lưu thay đổi
                   </button>
                 </div>
               </form>
             </div>
 
+          </div>
+
+          {/* CỘT PHẢI - 5/12 */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            {/* Card Resource Usage */}
             {usageData && (
-              <div className="mt-8 bg-white border border-border p-6 rounded-2xl shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-foreground flex items-center gap-2 text-xl">
-                    <Zap size={22} className="text-amber-500"/> Lịch sử Token (7 ngày)
-                  </h3>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-slate-600">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Thống kê sử dụng AI
+              <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                  <Database size={18} className="text-blue-600" /> Sử dụng tài nguyên
+                </h3>
+                
+                <div className="space-y-6">
+                  {/* Token AI Progress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <Zap size={16} className="text-blue-600" />
+                        <span>Token AI</span>
+                      </div>
+                      <span className="text-sm font-bold text-blue-600">{usedTokens.toLocaleString()} / {formatBytes(maxTokens).replace(' MB', 'k').replace('0k', '100k')}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-600 rounded-full" style={{ width: `${tokenPercent}%` }}></div>
+                    </div>
+                  </div>
+
+                  {/* Storage Progress */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <HardDrive size={16} className="text-blue-600" />
+                        <span>Dung lượng lưu trữ</span>
+                      </div>
+                      <span className="text-sm font-bold text-blue-600">{formatBytes(usedStorage)} / {formatBytes(maxStorage)}</span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-400 rounded-full" style={{ width: `${storagePercent}%` }}></div>
+                    </div>
+                  </div>
+
+                  {/* Document Count */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <Database size={16} className="text-blue-600" />
+                      <span>Số lượng tài liệu</span>
+                    </div>
+                    <span className="text-sm font-bold text-blue-600">{usageData.totalDocs} tệp</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Card Token History */}
+            {usageData && (
+              <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-slate-800">Lịch sử Token (7 ngày)</h3>
+                  <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs font-medium rounded-md">Hàng ngày</span>
+                </div>
                 
-                <div className="h-[280px] w-full mt-4">
+                <div className="h-[180px] w-full mt-2">
                   {isMounted && usageData.timeline?.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={usageData.timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <AreaChart data={usageData.timeline} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                         <defs>
-                          <linearGradient id="colorTokens" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                          <linearGradient id="colorTokensBlue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#2563eb" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -264,13 +374,18 @@ export default function SettingsPage() {
                           dataKey="_id" 
                           axisLine={false} 
                           tickLine={false} 
-                          tick={{ fill: '#64748b', fontSize: 12 }} 
+                          tick={{ fill: '#94a3b8', fontSize: 10 }} 
                           dy={10} 
+                          tickFormatter={(val) => {
+                            const date = new Date(val);
+                            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                            return days[date.getDay()];
+                          }}
                         />
                         <YAxis 
                           axisLine={false} 
                           tickLine={false} 
-                          tick={{ fill: '#64748b', fontSize: 12 }} 
+                          tick={false}
                         />
                         <Tooltip 
                           contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} 
@@ -278,21 +393,50 @@ export default function SettingsPage() {
                         <Area 
                           type="monotone" 
                           dataKey="tokens" 
-                          stroke="#f59e0b" 
-                          strokeWidth={3} 
+                          stroke="#2563eb" 
+                          strokeWidth={2} 
                           fillOpacity={1} 
-                          fill="url(#colorTokens)" 
+                          fill="url(#colorTokensBlue)" 
                         />
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-slate-400 italic">
-                      Chưa có dữ liệu tiêu thụ trong 7 ngày qua.
+                    <div className="h-full w-full flex items-center justify-center text-slate-400 italic text-sm">
+                      Chưa có dữ liệu
                     </div>
                   )}
                 </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-end justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Tổng token tuần này</p>
+                    <p className="text-2xl font-bold text-blue-600">{tokenThisWeek.toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center text-emerald-500 font-bold text-sm">
+                    ↗ +12%
+                  </div>
+                </div>
               </div>
             )}
+
+            {/* Upgrade Banner */}
+            <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-600/20 relative overflow-hidden">
+              {/* Background Decoration */}
+              <div className="absolute -bottom-10 -right-10 opacity-10 rotate-12">
+                <Zap size={150} />
+              </div>
+              
+              <div className="relative z-10">
+                <h3 className="font-bold text-lg mb-2">Nâng cấp gói Professional</h3>
+                <p className="text-blue-100 text-sm mb-6 max-w-[200px] leading-relaxed">
+                  Mở khóa tính năng AI nâng cao và không giới hạn lưu trữ.
+                </p>
+                <button className="bg-white text-blue-600 font-bold px-4 py-2 rounded-xl text-sm hover:bg-slate-50 transition-colors shadow-sm">
+                  Nâng cấp ngay
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

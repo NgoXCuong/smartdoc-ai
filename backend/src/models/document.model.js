@@ -31,6 +31,7 @@ const documentSchema = new mongoose.Schema(
     vectorNamespace: { type: String, default: null, index: true },
     totalChunks: { type: Number, default: 0 },
     summary: { type: String, default: null },
+    tags: [{ type: String }],
     suggestedQuestions: [{ type: String }],
     errorMessage: { type: String, default: null },
     sharedWith: [

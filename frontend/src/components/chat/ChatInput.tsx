@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
-import { Send, Lightbulb } from "lucide-react";
+import React, { useRef, useEffect } from "react";
+import { Send, Paperclip, Mic, Moon, ShieldCheck, Zap, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   input: string;
@@ -12,41 +13,36 @@ interface ChatInputProps {
   documents?: any[];
 }
 
-export default function ChatInput({ input, setInput, handleSend, selectedDocIds, loading, documents = [] }: ChatInputProps) {
-  // Tìm tài liệu đang chọn để lấy suggestedQuestions (nếu chọn đúng 1 tài liệu)
-  const selectedDoc = selectedDocIds.length === 1 ? documents.find(d => d._id === selectedDocIds[0]) : null;
-  
-  const globalPrompts = [
-    "Tóm tắt nội dung chính",
-    "Tìm các điểm quan trọng nhất",
-  ];
+export default function ChatInput({ input, setInput, handleSend, selectedDocIds, loading }: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const suggestedQuestions = selectedDoc?.suggestedQuestions || globalPrompts;
-
-  const handlePromptClick = (promptText: string) => {
-    setInput(promptText);
-  };
+  // Auto resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "24px";
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = Math.min(scrollHeight, 120) + "px";
+    }
+  }, [input]);
 
   return (
-    <div className="p-4 bg-white border-t border-border shrink-0">
-      {/* Khu vực hiển thị Prompt Templates */}
-      {selectedDocIds.length > 0 && suggestedQuestions.length > 0 && (
-        <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2">
-          {suggestedQuestions.slice(0, 3).map((q: string, i: number) => (
-            <button
-              key={i}
-              onClick={() => handlePromptClick(q)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-600 hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-colors"
-            >
-              <Lightbulb size={12} className={selectedDoc ? "text-amber-500" : "text-primary"} />
-              <span className="truncate max-w-[250px]">{q}</span>
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="w-full pb-6 pt-2 px-4 md:px-8 bg-transparent shrink-0">
+      <form 
+        onSubmit={handleSend} 
+        className="max-w-3xl mx-auto relative flex items-end gap-3 bg-white border border-slate-200 p-3 rounded-full shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] focus-within:shadow-[0_10px_40px_-10px_rgba(37,99,235,0.15)] focus-within:border-blue-300 transition-all"
+      >
+        {/* Nút đính kèm */}
+        <button 
+          type="button" 
+          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+          disabled={loading}
+        >
+          <Paperclip size={20} />
+        </button>
 
-      <form onSubmit={handleSend} className="max-w-3xl mx-auto relative flex items-end gap-2 bg-slate-50 border border-border p-2 rounded-2xl focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all shadow-sm">
+        {/* Ô nhập liệu */}
         <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -55,21 +51,57 @@ export default function ChatInput({ input, setInput, handleSend, selectedDocIds,
               handleSend(e);
             }
           }}
-          placeholder={selectedDocIds.length > 0 ? "Đặt câu hỏi về tài liệu..." : "Vui lòng chọn tài liệu trước..."}
+          placeholder={selectedDocIds.length > 0 ? "Type your message or ask a question about your documents..." : "Please select a document first..."}
           disabled={selectedDocIds.length === 0 || loading}
-          className="flex-1 bg-transparent border-none outline-none resize-none max-h-32 min-h-[44px] p-2 text-sm disabled:opacity-50"
+          className="flex-1 bg-transparent border-none outline-none resize-none min-h-[24px] max-h-[120px] py-2 text-[15px] text-slate-800 placeholder:text-slate-400 disabled:opacity-50 overflow-y-auto"
           rows={1}
         />
-        <button
-          type="submit"
-          disabled={!input.trim() || selectedDocIds.length === 0 || loading}
-          className="shrink-0 w-10 h-10 bg-primary text-primary-foreground rounded-xl flex items-center justify-center disabled:opacity-50 hover:bg-primary/90 transition-colors"
-        >
-          <Send size={18} className="ml-0.5" />
-        </button>
+
+        {/* Nhóm nút tiện ích bên phải */}
+        <div className="shrink-0 flex items-center gap-1">
+          <button 
+            type="button" 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors"
+            disabled={loading}
+          >
+            <Mic size={20} />
+          </button>
+          
+          <div className="relative flex items-center bg-slate-100 rounded-full p-0.5 mx-1">
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
+              <Moon size={16} className="rotate-180" /> {/* Giả lập icon nửa trắng nửa đen */}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!input.trim() || selectedDocIds.length === 0 || loading}
+            className={cn(
+              "shrink-0 w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md ml-1",
+              input.trim() && selectedDocIds.length > 0 && !loading
+                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-600/30"
+                : "bg-slate-100 text-slate-400 shadow-none"
+            )}
+          >
+            <Send size={20} className={input.trim() && selectedDocIds.length > 0 && !loading ? "ml-1" : ""} />
+          </button>
+        </div>
       </form>
-      <div className="text-center mt-2">
-        <span className="text-[10px] text-muted-foreground font-medium">SmartDoc AI có thể mắc lỗi. Vui lòng kiểm tra lại các trích dẫn.</span>
+
+      {/* Footer Info */}
+      <div className="max-w-3xl mx-auto flex items-center justify-center gap-6 mt-4 text-[10px] font-bold text-slate-400">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck size={12} />
+          <span>Enterprise Encryption</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Zap size={12} />
+          <span>GPT-4o Enhanced</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Info size={12} />
+          <span>Review Model Limits</span>
+        </div>
       </div>
     </div>
   );

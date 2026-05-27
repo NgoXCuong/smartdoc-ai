@@ -22,10 +22,13 @@ import {
   checkEmailForgotPassSchema,
   resetPasswordSchema,
 } from "../validations/auth.validation.js";
+import multer from "multer";
 import { loginLimiter } from "../middlewares/auth.middleware.js";
 import authService from "../services/auth.service.js";
+import { uploadAvatar, removeAvatar } from "../controllers/auth.controller.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * @swagger
@@ -286,5 +289,8 @@ router.post(
  *         description: Token không hợp lệ hoặc đã hết hạn
  */
 router.get("/verify-email/:token", verifyEmail);
+
+router.post("/avatar", verifyToken, upload.single("avatar"), uploadAvatar);
+router.delete("/avatar", verifyToken, removeAvatar);
 
 export default router;

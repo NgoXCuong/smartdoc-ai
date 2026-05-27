@@ -106,6 +106,14 @@ export const authApi = {
   forgotPassword: (data: { email: string }) => apiClient.post("/auth/forgot-password", data),
   resetPassword: (token: string, data: any) => apiClient.post(`/auth/reset-password/${token}`, data),
   verifyEmail: (token: string) => apiClient.get(`/auth/verify-email/${token}`),
+  uploadAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return apiClient.post("/auth/avatar", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  removeAvatar: () => apiClient.delete("/auth/avatar"),
 };
 
 export const documentApi = {
@@ -205,6 +213,13 @@ export const workspaceApi = {
   delete: (id: string) => apiClient.delete(`/workspaces/${id}`),
   addMember: (id: string, email: string, role: string) => apiClient.post(`/workspaces/${id}/members`, { email, role }),
   removeMember: (id: string, memberId: string) => apiClient.delete(`/workspaces/${id}/members/${memberId}`),
+};
+
+export const groupChatApi = {
+  getHistory: (workspaceId: string, page = 1, limit = 30) =>
+    apiClient.get(`/workspaces/${workspaceId}/chat?page=${page}&limit=${limit}`),
+  deleteMessage: (workspaceId: string, messageId: string) =>
+    apiClient.delete(`/workspaces/${workspaceId}/chat/${messageId}`),
 };
 
 export const usageApi = {

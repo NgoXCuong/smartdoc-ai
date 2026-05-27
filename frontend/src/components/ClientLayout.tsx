@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -24,11 +25,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col relative overflow-hidden bg-background">
-        {children}
+    <NotificationProvider>
+      <div className="flex h-screen bg-background text-foreground overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col relative overflow-hidden bg-background">
+          {children}
+        </div>
       </div>
-    </div>
+    </NotificationProvider>
   );
 }
+

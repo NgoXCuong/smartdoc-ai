@@ -7,6 +7,7 @@ import ocrService from "./ocr.service.js";
 import aiService from "./ai.service.js";
 import { logUsage } from "../config/usage.js";
 import { Document as LangChainDocument } from "@langchain/core/documents";
+import { emitToUser } from "../config/socket.js";
 
 
 const documentService = {
@@ -34,6 +35,9 @@ const documentService = {
         },
         { returnDocument: "after" },
       );
+      if (doc) {
+        emitToUser(doc.userId, "document_progress", { docId, progress: 10, status: "processing" });
+      }
 
       if (!doc) throw new Error("Không tìm thấy tài liệu");
 
@@ -129,14 +133,16 @@ const documentService = {
       }
 
       await Document.findByIdAndUpdate(docId, { progress: 40 });
+      emitToUser(doc.userId, "document_progress", { docId, progress: 40, status: "processing" });
 
       // --- PHẦN 2: CHIA NHỎ VĂN BẢN (TEXT SPLITTING) ---
       const { RecursiveCharacterTextSplitter } = await import(
         "@langchain/textsplitters"
       );
       const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200,
+        chunkSize: 2500, // Tăng kích thước chunk để giữ nhiều ngữ cảnh hơn, đặc biệt hữu ích cho bảng biểu
+        chunkOverlap: 500, // Tăng vùng chồng lấn
+        separators: ["\n\n\n", "\n\n", "\n", "•", " ", ""], // Ưu tiên cắt ở các đoạn văn, danh sách
       });
 
       // splitDocuments giúp duy trì metadata (pageNumber) cho từng chunk
@@ -163,17 +169,21 @@ const documentService = {
         embeddingKey: "embedding",
       });
 
+      await Document.findByIdAndUpdate(docId, { progress: 80 });
+      emitToUser(doc.userId, "document_progress", { docId, progress: 80, status: "processing" });
+
       // --- PHẦN 4: TÓM TẮT & GỢI Ý CÂU HỎI (AI SERVICE) ---
-      aiService
-        .generateMetadata(fullText)
-        .then(async (result) => {
-          await Document.findByIdAndUpdate(docId, {
-            summary: result.summary,
-            suggestedQuestions: result.questions,
-          });
-          logger.info(`Đã cập nhật tóm tắt cho tài liệu: ${docId}`);
-        })
-        .catch((err) => logger.error(`Lỗi tóm tắt tài liệu ${docId}:`, err));
+      try {
+        const result = await aiService.generateMetadata(fullText);
+        await Document.findByIdAndUpdate(docId, {
+          summary: result.summary,
+          tags: result.tags || [],
+          suggestedQuestions: result.questions || [],
+        });
+        logger.info(`Đã cập nhật tóm tắt cho tài liệu: ${docId}`);
+      } catch (err) {
+        logger.error(`Lỗi tóm tắt tài liệu ${docId}:`, err);
+      }
 
       await Document.findByIdAndUpdate(docId, {
         status: "completed",
@@ -181,6 +191,8 @@ const documentService = {
         vectorNamespace: `doc_${docId}`,
         totalChunks: chunkDocs.length,
       });
+
+      emitToUser(doc.userId, "document_progress", { docId, progress: 100, status: "completed" });
 
       // Log usage for embedding
       await logUsage({

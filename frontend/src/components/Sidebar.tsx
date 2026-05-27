@@ -11,17 +11,19 @@ import {
   BrainCircuit,
   Settings,
   Folder,
-  TrendingUp
+  TrendingUp,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authApi } from "@/services/api";
 import { motion } from "framer-motion";
-
+import { useNotifications } from "@/context/NotificationContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const { totalUnread } = useNotifications();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -45,79 +47,88 @@ export default function Sidebar() {
   if (!user) return null;
 
   return (
-    <aside className="w-64 border-r border-border bg-white flex flex-col h-screen shrink-0 relative">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
-          <BrainCircuit size={24} />
+    <aside className="w-[260px] border-r border-slate-200 bg-white flex flex-col h-screen shrink-0 relative z-30">
+      <div className="p-6 pb-2">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <BrainCircuit size={20} />
+          </div>
+          <span className="font-bold text-lg text-slate-800 tracking-tight">SmartDoc AI</span>
         </div>
-        <span className="font-bold text-xl tracking-tight text-foreground">SmartDoc AI</span>
+        <p className="text-[11px] text-slate-500 font-medium ml-11">Quản lý tài liệu thông minh</p>
       </div>
 
-      <nav className="flex-1 py-6 space-y-1">
-        <div className="px-6 mb-3">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.1em]">Main Menu</span>
-        </div>
+      <div className="px-5 my-4">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('trigger-upload'))}
+          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl py-3 flex items-center justify-center gap-2 font-bold text-sm shadow-md shadow-blue-600/20 transition-all"
+        >
+          <span className="text-lg leading-none mb-0.5">+</span> Tạo tài liệu mới
+        </button>
+      </div>
+
+      <nav className="flex-1 px-3 space-y-1 mt-2">
         <NavItem
           href="/"
-          icon={<FileText size={20} />}
+          icon={<FileText size={18} />}
           label="Tài liệu"
           active={pathname === "/"}
         />
         <NavItem
           href="/chat"
-          icon={<MessageSquare size={20} />}
+          icon={<MessageSquare size={18} />}
           label="Trợ lý AI"
           active={pathname.startsWith("/chat")}
         />
         <NavItem
           href="/folders"
-          icon={<Folder size={20} />}
+          icon={<Folder size={18} />}
           label="Dự án"
           active={pathname.startsWith("/folders")}
         />
-
-        <div className="pt-8 pb-3 px-6">
-          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.1em]">Cá nhân</span>
-        </div>
         <NavItem
           href="/settings"
-          icon={<Settings size={20} />}
+          icon={<Settings size={18} />}
           label="Cài đặt"
           active={pathname.startsWith("/settings")}
         />
+        <NavItem
+          href="/workspaces"
+          icon={<Users size={18} />}
+          label="Nhóm làm việc"
+          active={pathname.startsWith("/workspaces")}
+          badge={totalUnread}
+        />
 
         {user.role === "admin" && (
-          <>
-            <div className="pt-8 pb-3 px-6">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.1em]">Admin Panel</span>
-            </div>
+          <div className="pt-4 mt-4 border-t border-slate-100">
             <NavItem
               href="/admin"
-              icon={<ShieldAlert size={20} />}
+              icon={<ShieldAlert size={18} />}
               label="Hệ thống"
               active={pathname === "/admin"}
             />
             <NavItem
               href="/admin/analytics"
-              icon={<TrendingUp size={20} />}
+              icon={<TrendingUp size={18} />}
               label="Giám sát"
               active={pathname === "/admin/analytics"}
             />
-          </>
+          </div>
         )}
       </nav>
 
-      <div className="p-4 border-t border-border mt-auto">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-border/50">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-blue-400 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-inner">
+      <div className="p-4 mt-auto">
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 cursor-pointer group">
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
             {user.username?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-xs font-bold text-foreground truncate">{user.username}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+            <p className="text-sm font-bold text-slate-800 truncate leading-tight mb-0.5">{user.username}</p>
+            <p className="text-[11px] font-semibold text-slate-500 truncate">Pro Plan</p>
           </div>
-          <button onClick={handleLogout} className="text-muted-foreground hover:text-destructive transition-colors p-1" title="Đăng xuất">
-            <LogOut size={16} />
+          <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-lg opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200" title="Đăng xuất">
+            <LogOut size={14} />
           </button>
         </div>
       </div>
@@ -125,27 +136,47 @@ export default function Sidebar() {
   );
 }
 
-function NavItem({ icon, label, active, href }: { icon: React.ReactNode, label: string, active?: boolean, href: string }) {
+function NavItem({
+  icon,
+  label,
+  active,
+  href,
+  badge,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  href: string;
+  badge?: number;
+}) {
   return (
     <Link
       href={href}
       className={cn(
-        "w-full flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all duration-200 relative group",
+        "w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200",
         active
-          ? "text-primary font-bold"
-          : "text-muted-foreground hover:text-foreground hover:bg-slate-50"
+          ? "bg-slate-100 text-blue-600"
+          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
       )}
     >
-      {active && (
-        <motion.div
-          layoutId="active-bar"
-          className="absolute left-0 w-1 h-6 bg-primary rounded-r-full"
-        />
-      )}
-      <span className={cn("transition-transform duration-200", active ? "scale-110" : "group-hover:translate-x-1")}>
+      <span className={cn("transition-colors", active ? "text-blue-600" : "text-slate-400")}>
         {icon}
       </span>
-      <span>{label}</span>
+      <span className="flex-1">{label}</span>
+
+      {/* Unread Badge */}
+      {badge != null && badge > 0 && (
+        <motion.span
+          key={badge}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-indigo-200"
+        >
+          {badge > 99 ? "99+" : badge}
+        </motion.span>
+      )}
     </Link>
   );
 }
+

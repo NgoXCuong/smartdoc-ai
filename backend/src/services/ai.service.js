@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
 import logger from "../utils/logger.js";
 import { ApiError } from "../utils/ApiError.js";
 
@@ -15,28 +16,28 @@ const aiService = {
       const model = new ChatGoogleGenerativeAI({
         apiKey: process.env.GOOGLE_API_KEY,
         model: "gemini-flash-latest",
-        maxOutputTokens: 1000,
-        temperature: 0.7,
+        maxOutputTokens: 2048,
+        temperature: 0.2,
       });
 
-      // Lấy 10,000 ký tự đầu tiên để tóm tắt (tránh vượt giới hạn token)
-      const sampleText = text.substring(0, 10000);
+      // Lấy 200,000 ký tự đầu tiên để tận dụng context cực lớn của Gemini Flash
+      // Giúp tóm tắt bao quát toàn bộ tài liệu mà tốc độ vẫn cực kỳ nhanh so với Map-Reduce
+      const sampleText = text.substring(0, 200000);
 
-      const prompt = `
-        Bạn là một chuyên gia phân tích tài liệu. Dựa vào nội dung tài liệu sau đây:
-        ---
-        ${sampleText}
-        ---
-        Hãy thực hiện (trả về JSON theo cấu trúc yêu cầu):
+      const messages = [
+        new SystemMessage(`Bạn là một chuyên gia phân tích tài liệu.
+        Bạn BẮT BUỘC phải trả về một JSON hợp lệ (không kèm theo bất kỳ văn bản giải thích hay markdown \`\`\` nào). Cấu trúc bắt buộc:
         {
           "summary": "Tóm tắt nội dung chính trong khoảng 3-5 câu (Tiếng Việt).",
-          "questions": ["Đề xuất 3-5 câu hỏi quan trọng nhất dựa trên tài liệu."]
-        }
-      `;
+          "tags": ["từ khóa 1", "từ khóa 2", "từ khóa 3"],
+          "questions": ["Câu hỏi 1?", "Câu hỏi 2?", "Câu hỏi 3?"]
+        }`),
+        new HumanMessage(`Dựa vào nội dung tài liệu sau đây, hãy thực hiện yêu cầu phân tích:\n\n---\n${sampleText}\n---`)
+      ];
 
-      const response = await model.invoke(prompt);
+      const response = await model.invoke(messages);
       const content = response.content;
-      logger.info(`[AI] Raw response from Gemini: ${content}`);
+      logger.info(`[AI] Raw response from Gemini received (length: ${content?.length || 0})`);
       let cleanContent = content;
       if (typeof content === 'string') {
         cleanContent = content.replace(/```json\n?|```/g, "").trim();
@@ -50,7 +51,7 @@ const aiService = {
       return JSON.parse(jsonMatch[0]);
     } catch (error) {
       logger.error("Lỗi khi gọi Gemini AI để tạo Metadata:", error);
-      return { summary: "Không thể tạo tóm tắt vào lúc này.", questions: [] };
+      return { summary: "Không thể tạo tóm tắt vào lúc này.", tags: [], questions: [] };
     }
   },
 
@@ -70,26 +71,24 @@ const aiService = {
         temperature: 0.1, // Thấp để tăng độ chính xác của trích xuất
       });
 
-      // Rút trích khoảng 20,000 ký tự đầu tiên
-      const sampleText = text.substring(0, 20000);
+      // Tận dụng Context lớn của Gemini Flash (Lên đến 1 triệu tokens ~ hàng trăm ngàn ký tự)
+      const sampleText = text.substring(0, 200000);
       const keysList = keys.map(k => `- ${k}`).join("\n");
 
-      const prompt = `
-        Bạn là một chuyên gia trích xuất dữ liệu. Hãy đọc kỹ văn bản dưới đây:
-        ---
-        ${sampleText}
-        ---
-        Dựa vào văn bản trên, hãy trích xuất thông tin cho các trường sau:
+      const messages = [
+        new SystemMessage(`Bạn là một chuyên gia trích xuất dữ liệu.
+        Dựa vào văn bản người dùng cung cấp, hãy trích xuất thông tin cho các trường sau:
         ${keysList}
 
         Trả về KẾT QUẢ DUY NHẤT LÀ MỘT OBJECT JSON, với các key là tên các trường yêu cầu, và value là giá trị trích xuất được.
         Nếu không tìm thấy thông tin cho một trường, hãy để value là null.
-        KHÔNG ĐƯỢC GIẢI THÍCH THÊM. CHỈ TRẢ VỀ JSON.
-      `;
+        KHÔNG ĐƯỢC GIẢI THÍCH THÊM. CHỈ TRẢ VỀ JSON hợp lệ.`),
+        new HumanMessage(`Văn bản cần trích xuất:\n\n---\n${sampleText}\n---`)
+      ];
 
-      const response = await model.invoke(prompt);
+      const response = await model.invoke(messages);
       let content = response.content;
-      logger.info(`[AI Extraction] Raw response: ${content}`);
+      logger.info(`[AI Extraction] Raw response received`);
       
       if (typeof content === 'string') {
         content = content.replace(/```json\n?|```/g, "").trim();
@@ -109,3 +108,4 @@ const aiService = {
 };
 
 export default aiService;
+
