@@ -3,8 +3,10 @@ import {
   createFolder, 
   getFolders, 
   getFolder,
+  getFolderBreadcrumbs,
   updateFolder, 
   deleteFolder,
+  moveFolder,
   moveDocument,
   shareFolder,
   removeFolderShare
@@ -22,10 +24,16 @@ router.route("/")
 router.route("/move")
   .post(moveDocument);
 
+router.route("/move-folder")
+  .post(moveFolder);
+
 router.route("/:folderId")
   .get(getFolder)
   .patch(updateFolder)
   .delete(deleteFolder);
+
+router.route("/:folderId/breadcrumbs")
+  .get(getFolderBreadcrumbs);
 
 router.route("/:folderId/share")
   .post(shareFolder);

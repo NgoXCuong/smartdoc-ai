@@ -34,11 +34,34 @@ const documentSchema = new mongoose.Schema(
     tags: [{ type: String }],
     suggestedQuestions: [{ type: String }],
     errorMessage: { type: String, default: null },
-    sharedWith: [
+
+    // Metadata mở rộng
+    language: { type: String, default: "vi" },
+    pageCount: { type: Number, default: 0 },
+    processingStartedAt: { type: Date },
+    processingFinishedAt: { type: Date },
+    embeddingModel: { type: String, default: "gemini-embedding-001" },
+    summaryModel: { type: String, default: "gemini-flash-latest" },
+    chunkSize: { type: Number, default: 2500 },
+    chunkOverlap: { type: Number, default: 500 },
+    ocrEnabled: { type: Boolean, default: false },
+    lastIndexedAt: { type: Date },
+
+    // Quản lý phiên bản tài liệu (Document Versioning)
+    version: { type: Number, default: 1, min: 1 },
+    versionHistory: [
       {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
-        permission: { type: String, enum: ["view", "chat"], default: "view" },
-        addedAt: { type: Date, default: Date.now },
+        version: { type: Number, required: true },
+        fileName: { type: String, required: true },
+        fileType: { type: String },
+        fileSize: { type: Number, required: true },
+        fileUrl: { type: String, required: true },
+        cloudFileId: { type: String, required: true },
+        summary: { type: String },
+        totalChunks: { type: Number, default: 0 },
+        changeLog: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now },
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
       },
     ],
   },
@@ -46,7 +69,10 @@ const documentSchema = new mongoose.Schema(
 );
 
 documentSchema.index({ userId: 1, createdAt: -1 });
+documentSchema.index({ userId: 1, workspaceId: 1, createdAt: -1 });
+documentSchema.index({ folderId: 1, status: 1 });
+documentSchema.index({ workspaceId: 1 });
 
-const Document = mongoose.model("document", documentSchema, "file_metadata");
+const Document = mongoose.model("document", documentSchema, "documents");
 
 export default Document;

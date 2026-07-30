@@ -117,11 +117,14 @@ export const authApi = {
 };
 
 export const documentApi = {
-  upload: (file: File, workspaceId?: string | null) => {
+  upload: (file: File, workspaceId?: string | null, folderId?: string | null) => {
     const formData = new FormData();
     formData.append("file", file);
     if (workspaceId) {
       formData.append("workspaceId", workspaceId);
+    }
+    if (folderId) {
+      formData.append("folderId", folderId);
     }
     return apiClient.post("/docs/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -130,8 +133,24 @@ export const documentApi = {
   getAll: (page = 1, limit = 10, search = "", folderId = "", workspaceId = "") => 
     apiClient.get(`/docs?page=${page}&limit=${limit}&search=${search}&folderId=${folderId}&workspaceId=${workspaceId}`),
   getInfo: (id: string) => apiClient.get(`/docs/${id}`),
+  getJob: (id: string) => apiClient.get(`/docs/${id}/job`),
   delete: (id: string) => apiClient.delete(`/docs/${id}`),
+  share: (id: string, email: string, permission = "view", expiresAt?: string | null, canDownload = true) =>
+    apiClient.post(`/docs/${id}/share`, { email, permission, expiresAt, canDownload }),
+  removeShare: (id: string, email: string) => apiClient.delete(`/docs/${id}/share/${email}`),
   extract: (id: string, keys: string[]) => apiClient.post(`/docs/${id}/extract`, { keys }),
+  uploadVersion: (id: string, file: File, changeLog?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (changeLog) {
+      formData.append("changeLog", changeLog);
+    }
+    return apiClient.post(`/docs/${id}/versions`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  getVersions: (id: string) => apiClient.get(`/docs/${id}/versions`),
+  restoreVersion: (id: string, version: number) => apiClient.post(`/docs/${id}/restore/${version}`),
 };
 
 export const chatApi = {
@@ -190,12 +209,24 @@ export const chatApi = {
 };
 
 export const folderApi = {
-  getAll: () => apiClient.get("/folders"),
+  getAll: (parentFolderId?: string | null, workspaceId?: string | null) => {
+    let url = "/folders?";
+    if (parentFolderId !== undefined && parentFolderId !== null) {
+      url += `parentFolderId=${parentFolderId}&`;
+    }
+    if (workspaceId) {
+      url += `workspaceId=${workspaceId}&`;
+    }
+    return apiClient.get(url);
+  },
   getById: (id: string) => apiClient.get(`/folders/${id}`),
-  create: (name: string, color?: string) => apiClient.post("/folders", { name, color }),
+  getBreadcrumbs: (id: string) => apiClient.get(`/folders/${id}/breadcrumbs`),
+  create: (name: string, color?: string, parentFolderId?: string | null, workspaceId?: string | null) => 
+    apiClient.post("/folders", { name, color, parentFolderId: parentFolderId || null, workspaceId: workspaceId || null }),
   update: (id: string, data: any) => apiClient.patch(`/folders/${id}`, data),
   delete: (id: string) => apiClient.delete(`/folders/${id}`),
   moveDocument: (docId: string, folderId: string | null) => apiClient.post("/folders/move", { docId, folderId }),
+  moveFolder: (folderId: string, targetParentFolderId: string | null) => apiClient.post("/folders/move-folder", { folderId, targetParentFolderId }),
 };
 
 export const adminApi = {
@@ -213,6 +244,17 @@ export const workspaceApi = {
   delete: (id: string) => apiClient.delete(`/workspaces/${id}`),
   addMember: (id: string, email: string, role: string) => apiClient.post(`/workspaces/${id}/members`, { email, role }),
   removeMember: (id: string, memberId: string) => apiClient.delete(`/workspaces/${id}/members/${memberId}`),
+  generateInviteCode: (id: string) => apiClient.post(`/workspaces/${id}/invite-code`),
+  getByInviteCode: (code: string) => apiClient.get(`/workspaces/invite-info/${code}`),
+  joinByInviteCode: (code: string) => apiClient.post(`/workspaces/join/${code}`),
+  updateAvatar: (id: string, avatar: string) => apiClient.post(`/workspaces/${id}/avatar`, { avatar }),
+  uploadAvatarFile: (file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return apiClient.post("/workspaces/upload-avatar", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export const groupChatApi = {
@@ -224,6 +266,23 @@ export const groupChatApi = {
 
 export const usageApi = {
   getMe: () => apiClient.get("/usage/me"),
+};
+
+export const notificationApi = {
+  getAll: (page = 1, limit = 15, unreadOnly = false) =>
+    apiClient.get(`/notifications?page=${page}&limit=${limit}&unreadOnly=${unreadOnly}`),
+  markAsRead: (id: string) => apiClient.put(`/notifications/${id}/read`),
+  markAllAsRead: () => apiClient.put("/notifications/read-all"),
+  delete: (id: string) => apiClient.delete(`/notifications/${id}`),
+};
+
+export const activityLogApi = {
+  getAll: (page = 1, limit = 20, workspaceId?: string | null, action?: string) => {
+    let url = `/activity-logs?page=${page}&limit=${limit}`;
+    if (workspaceId) url += `&workspaceId=${workspaceId}`;
+    if (action) url += `&action=${action}`;
+    return apiClient.get(url);
+  },
 };
 
 export default apiClient;

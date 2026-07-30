@@ -4,11 +4,12 @@ import { addDocumentJob } from "../queues/document.queue.js";
 import logger from "../utils/logger.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import aiService from "../services/ai.service.js";
 
 export const uploadDocument = asyncHandler(async (req, res) => {
   const { file } = req;
   const { userId } = req.user;
-  const { workspaceId } = req.body;
+  const { workspaceId, folderId } = req.body;
 
   if (!file) throw new ApiError(400, "Không có tệp nào được tải lên");
 
@@ -31,8 +32,11 @@ export const uploadDocument = asyncHandler(async (req, res) => {
   if (workspaceId) {
     fileMetadata.workspaceId = workspaceId;
   }
+  if (folderId) {
+    fileMetadata.folderId = folderId;
+  }
 
-  logger.info(`[Upload] Creating document record for user: ${userId}, file: ${fileMetadata.originalname}`);
+  logger.info(`[Upload] Tạo bản ghi tài liệu cho người dùng: ${userId}, file: ${fileMetadata.originalname}`);
 
   const newDocument = await documentService.uploadDocument(
     userId,
@@ -95,9 +99,6 @@ export const deleteDocument = asyncHandler(async (req, res) => {
     await storageService.deleteDocument(document.cloudFileId);
   }
 
-  // 3. Xóa các vector liên quan trong VectorDB
-  // (Đã được xử lý bên trong documentService.deleteDocumentById)
-
   await documentService.deleteDocumentById(id, userId);
   return res.status(200).json({ 
     success: true,
@@ -107,15 +108,32 @@ export const deleteDocument = asyncHandler(async (req, res) => {
 
 export const shareDocument = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { email, permission } = req.body;
+  const { email, permission, expiresAt, canDownload } = req.body;
 
   if (!email) throw new ApiError(400, "Vui lòng cung cấp email");
 
-  const document = await documentService.shareDocument(id, req.user.userId, email, permission || "view");
+  const document = await documentService.shareDocument(
+    id, 
+    req.user.userId, 
+    email, 
+    permission || "view",
+    expiresAt,
+    canDownload
+  );
   return res.status(200).json({ 
     success: true,
     message: "Chia sẻ tài liệu thành công", 
     document 
+  });
+});
+
+export const getProcessingJob = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const ProcessingJob = (await import("../models/processingJob.model.js")).default;
+  const job = await ProcessingJob.findOne({ docId: id });
+  return res.status(200).json({
+    success: true,
+    job: job || null,
   });
 });
 
@@ -141,10 +159,6 @@ export const extractDocumentData = asyncHandler(async (req, res) => {
   // Lấy nội dung text của document
   const text = await documentService.getDocumentText(id, userId);
 
-  // Gọi AI trích xuất
-  const aiServiceModule = await import("../services/ai.service.js");
-  const aiService = aiServiceModule.default;
-  
   const extractedData = await aiService.extractStructuredData(text, keys);
 
   return res.status(200).json({
@@ -153,4 +167,71 @@ export const extractDocumentData = asyncHandler(async (req, res) => {
     data: extractedData
   });
 });
+
+export const uploadNewVersion = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { file } = req;
+  const { userId } = req.user;
+  const { changeLog } = req.body;
+
+  if (!file) throw new ApiError(400, "Không có tệp phiên bản mới nào được tải lên");
+
+  const uploadedFile = await storageService.uploadDocument(file);
+  if (!uploadedFile.fileUrl || !uploadedFile.cloudFileId) {
+    throw new ApiError(500, "Lỗi khi tải tệp lên bộ nhớ đám mây");
+  }
+
+  const fileMetadata = {
+    originalname: Buffer.from(file.originalname, "latin1").toString("utf8"),
+    mimetype: file.mimetype,
+    size: file.size || 0,
+    fileUrl: uploadedFile.fileUrl,
+    cloudFileId: uploadedFile.cloudFileId,
+  };
+
+  const document = await documentService.uploadNewVersion(id, userId, fileMetadata, changeLog);
+
+  try {
+    await addDocumentJob(document._id);
+  } catch (queueError) {
+    logger.error(`Lỗi đẩy queue cho phiên bản mới ${id}:`, queueError);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Tải lên phiên bản mới thành công, đang cập nhật dữ liệu AI",
+    document,
+  });
+});
+
+export const getVersionHistory = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user.userId;
+
+  const result = await documentService.getVersionHistory(id, userId);
+  return res.status(200).json({
+    success: true,
+    ...result,
+  });
+});
+
+export const restoreVersion = asyncHandler(async (req, res) => {
+  const { id, version } = req.params;
+  const userId = req.user.userId;
+
+  const document = await documentService.restoreVersion(id, userId, version);
+
+  try {
+    await addDocumentJob(document._id);
+  } catch (queueError) {
+    logger.error(`Lỗi đẩy queue khôi phục v${version} cho ${id}:`, queueError);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: `Đã khôi phục thành công về phiên bản v${version}`,
+    document,
+  });
+});
+
 

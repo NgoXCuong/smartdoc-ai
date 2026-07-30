@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import {
   createWorkspace,
   getWorkspaces,
@@ -6,7 +7,12 @@ import {
   updateWorkspace,
   deleteWorkspace,
   addMember,
-  removeMember
+  removeMember,
+  generateInviteCode,
+  getWorkspaceByInviteCode,
+  joinByInviteCode,
+  updateAvatar,
+  uploadWorkspaceAvatarFile,
 } from "../controllers/workspace.controller.js";
 import {
   getGroupChatHistory,
@@ -15,6 +21,10 @@ import {
 import { verifyToken } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Public / Semi-public routes
+router.get("/invite-info/:inviteCode", getWorkspaceByInviteCode);
 
 router.use(verifyToken);
 
@@ -24,8 +34,15 @@ router.get("/:id", getWorkspace);
 router.put("/:id", updateWorkspace);
 router.delete("/:id", deleteWorkspace);
 
+router.post("/upload-avatar", upload.single("avatar"), uploadWorkspaceAvatarFile);
+
 router.post("/:id/members", addMember);
 router.delete("/:id/members/:memberId", removeMember);
+
+// Invite code & Public Join routes
+router.post("/:id/invite-code", generateInviteCode);
+router.post("/join/:inviteCode", joinByInviteCode);
+router.post("/:id/avatar", updateAvatar);
 
 // Group Chat Routes
 router.get("/:id/chat", getGroupChatHistory);

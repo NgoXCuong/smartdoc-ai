@@ -1,6 +1,8 @@
 import authService from "../services/auth.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import storageService from "../services/storage.service.js";
+import User from "../models/user.model.js";
 
 export const registerUser = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
@@ -139,9 +141,6 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     message: "Xác thực Email thành công! Bạn có thể đăng nhập ngay bây giờ",
   });
 });
-
-import storageService from "../services/storage.service.js";
-import User from "../models/user.model.js";
 
 export const uploadAvatar = asyncHandler(async (req, res) => {
   if (!req.file) {

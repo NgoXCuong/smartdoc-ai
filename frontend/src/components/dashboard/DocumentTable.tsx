@@ -1,107 +1,201 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, FileText, Upload, Eye, Download, MoreVertical } from 'lucide-react';
+import { Loader2, FileText, Upload, Eye, Download, Share2, Cpu, Trash2, History } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import DocumentProcessingTrackerModal from './DocumentProcessingTrackerModal';
+import ShareDocumentModal from './ShareDocumentModal';
+import { DocumentVersionModal } from './DocumentVersionModal';
 
 interface DocumentTableProps {
   documents: any[];
   loading: boolean;
-  uploading: boolean;
-  handleFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDelete: (e: React.MouseEvent, docId: string) => void;
   onOpenMoveModal: (doc: any) => void;
+  onRefresh?: () => void;
 }
 
-export default function DocumentTable({ documents, loading, uploading, handleFileUpload, handleDelete, onOpenMoveModal }: DocumentTableProps) {
+export default function DocumentTable({ documents, loading, handleDelete, onOpenMoveModal, onRefresh }: DocumentTableProps) {
   const router = useRouter();
+  const [selectedTrackerDoc, setSelectedTrackerDoc] = useState<any>(null);
+  const [selectedShareDoc, setSelectedShareDoc] = useState<any>(null);
+  const [selectedVersionDoc, setSelectedVersionDoc] = useState<any>(null);
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8 transition-all">
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-        <h2 className="text-[15px] font-bold text-slate-800">
-          Tài liệu gần đây
-        </h2>
-        <button className="text-[13px] font-semibold text-blue-600 hover:text-blue-700">
-          Xem tất cả
-        </button>
-      </div>
+    <>
+      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8 transition-all">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-[15px] font-bold text-slate-800">
+            Tài liệu gần đây
+          </h2>
+          <button className="text-[13px] font-semibold text-blue-600 hover:text-blue-700">
+            Xem tất cả
+          </button>
+        </div>
 
-      {loading ? (
-        <div className="flex justify-center p-24">
-          <Loader2 className="animate-spin text-blue-500/50" size={40} />
-        </div>
-      ) : documents.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                <th className="px-6 py-4 font-semibold w-auto">Tên tài liệu</th>
-                <th className="px-6 py-4 font-semibold w-[120px]">Kích thước</th>
-                <th className="px-6 py-4 font-semibold w-[130px]">Trạng thái</th>
-                <th className="px-6 py-4 font-semibold w-[120px]">Ngày tạo</th>
-                <th className="px-6 py-4 font-semibold text-right w-[140px]">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.map((doc: any) => (
-                <DocumentRow
-                  key={doc._id}
-                  doc={doc}
-                  onClick={() => {
-                    if (doc.status === 'completed') {
-                      router.push(`/chat?docId=${doc._id}`);
-                    } else {
-                      toast("Tài liệu đang được xử lý, vui lòng chờ đợi.", { icon: "⏳" });
-                    }
-                  }}
-                  onDelete={(e) => handleDelete(e, doc._id)}
-                  onMove={(e) => {
-                    e.stopPropagation();
-                    onOpenMoveModal(doc);
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="text-center p-24 bg-slate-50/30">
-          <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100/50">
-            <FileText className="text-blue-400" size={32} />
+        {loading ? (
+          <div className="flex justify-center p-24">
+            <Loader2 className="animate-spin text-blue-500/50" size={40} />
           </div>
-          <h3 className="text-xl font-bold mb-2 text-slate-800 tracking-tight">Chưa có tài liệu nào</h3>
-          <p className="text-slate-500 mb-8 max-w-sm mx-auto text-sm font-medium">Bắt đầu không gian làm việc của bạn bằng cách tải lên tài liệu đầu tiên.</p>
-          <label className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition-all cursor-pointer shadow-sm">
-            <Upload size={18} />
-            <span className="text-sm">Tải tài liệu lên</span>
-            <input type="file" className="hidden" accept=".pdf,.doc,.docx,.txt,.md,image/*" onChange={handleFileUpload} disabled={uploading} />
-          </label>
-        </div>
+        ) : documents.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                  <th className="px-6 py-4 font-semibold w-auto">Tên tài liệu</th>
+                  <th className="px-6 py-4 font-semibold w-[120px]">Kích thước</th>
+                  <th className="px-6 py-4 font-semibold w-[150px]">Trạng thái / Pipeline</th>
+                  <th className="px-6 py-4 font-semibold w-[120px]">Ngày tạo</th>
+                  <th className="px-6 py-4 font-semibold text-right w-[180px]">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map((doc: any) => (
+                  <DocumentRow
+                    key={doc._id}
+                    doc={doc}
+                    onClick={() => {
+                      if (doc.status === 'completed') {
+                        router.push(`/chat?docId=${doc._id}`);
+                      } else {
+                        setSelectedTrackerDoc(doc);
+                      }
+                    }}
+                    onDelete={(e) => handleDelete(e, doc._id)}
+                    onOpenTracker={(e) => {
+                      e.stopPropagation();
+                      setSelectedTrackerDoc(doc);
+                    }}
+                    onOpenShare={(e) => {
+                      e.stopPropagation();
+                      setSelectedShareDoc(doc);
+                    }}
+                    onOpenVersion={(e) => {
+                      e.stopPropagation();
+                      setSelectedVersionDoc(doc);
+                    }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center p-24 bg-slate-50/30">
+            <div className="w-20 h-20 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100/50">
+              <FileText className="text-blue-400" size={32} />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-slate-800 tracking-tight">Chưa có tài liệu nào</h3>
+            <p className="text-slate-500 mb-8 max-w-sm mx-auto text-sm font-medium">Bắt đầu không gian làm việc của bạn bằng cách tải lên tài liệu đầu tiên.</p>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('trigger-upload'))}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition-all shadow-sm"
+            >
+              <Upload size={18} />
+              <span className="text-sm">Tải tài liệu lên</span>
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* Tracker Modal */}
+      {selectedTrackerDoc && (
+        <DocumentProcessingTrackerModal
+          doc={selectedTrackerDoc}
+          onClose={() => setSelectedTrackerDoc(null)}
+        />
       )}
-    </section>
+
+      {/* Share Modal */}
+      {selectedShareDoc && (
+        <ShareDocumentModal
+          doc={selectedShareDoc}
+          onClose={() => setSelectedShareDoc(null)}
+        />
+      )}
+
+      {/* Version Management Modal */}
+      {selectedVersionDoc && (
+        <DocumentVersionModal
+          isOpen={!!selectedVersionDoc}
+          document={selectedVersionDoc}
+          onClose={() => setSelectedVersionDoc(null)}
+          onVersionUpdated={() => {
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
+    </>
   );
 }
 
-function DocumentRow({ doc, onClick, onDelete, onMove }: { doc: any, onClick: () => void, onDelete: (e: any) => void, onMove: (e: any) => void }) {
+function DocumentRow({
+  doc,
+  onClick,
+  onDelete,
+  onOpenTracker,
+  onOpenShare,
+  onOpenVersion,
+}: {
+  doc: any;
+  onClick: () => void;
+  onDelete: (e: any) => void;
+  onOpenTracker: (e: any) => void;
+  onOpenShare: (e: any) => void;
+  onOpenVersion: (e: any) => void;
+}) {
   const isProcessing = doc.status === "processing" || doc.status === "pending";
   const isFailed = doc.status === "failed";
+  const versionNum = doc.version || 1;
+
+  const fileNameLower = (doc.fileName || "").toLowerCase();
+  const isPdf = fileNameLower.endsWith(".pdf");
+  const isDocx = fileNameLower.endsWith(".docx") || fileNameLower.endsWith(".doc");
+  const isTxt = fileNameLower.endsWith(".txt") || fileNameLower.endsWith(".md");
 
   return (
     <tr
       onClick={onClick}
       className={cn(
-        "group hover:bg-slate-50 transition-all duration-200 cursor-pointer border-b border-slate-100/60 last:border-0",
+        "group hover:bg-blue-50/40 transition-all duration-200 cursor-pointer border-b border-slate-100/60 last:border-0",
         isProcessing && "cursor-wait"
       )}
     >
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="text-blue-500">
-            {isProcessing ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+          <div className="shrink-0">
+            {isProcessing ? (
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
+                <Loader2 size={20} className="animate-spin text-indigo-600" />
+              </div>
+            ) : isPdf ? (
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs shadow-xs">
+                PDF
+              </div>
+            ) : isDocx ? (
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shadow-xs">
+                DOC
+              </div>
+            ) : isTxt ? (
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-xs shadow-xs">
+                TXT
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                <FileText size={20} />
+              </div>
+            )}
           </div>
           <div>
-            <p className="font-semibold text-slate-800 text-sm line-clamp-1 group-hover:text-blue-600 transition-colors" title={doc.fileName}>{doc.fileName}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-slate-800 text-sm line-clamp-1 group-hover:text-blue-600 transition-colors" title={doc.fileName}>{doc.fileName}</p>
+              <span 
+                onClick={onOpenVersion}
+                className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-indigo-50 text-indigo-600 border border-indigo-200/80 hover:bg-indigo-100 transition-colors shrink-0"
+                title="Phiên bản tài liệu - Nhấp để xem lịch sử & cập nhật"
+              >
+                v{versionNum}
+              </span>
+            </div>
             <div className="flex flex-col gap-1 mt-0.5">
               {doc.summary && !isProcessing && !isFailed ? (
                 <>
@@ -120,13 +214,13 @@ function DocumentRow({ doc, onClick, onDelete, onMove }: { doc: any, onClick: ()
                 <div className="flex flex-col gap-1.5 mt-0.5">
                   <p className="text-[11px] text-slate-400 italic flex items-center gap-2">
                     {isProcessing ? (
-                      <>Đang xử lý... <span className="font-semibold text-blue-500">{doc.progress || 0}%</span></>
-                    ) : isFailed ? "Không thể xử lý" : "Chưa có tóm tắt"}
+                      <>Đang xử lý Pipeline AI... <span className="font-semibold text-indigo-600">{doc.progress || 0}%</span></>
+                    ) : isFailed ? "Không thể xử lý" : "Chưa có tóm tắt AI"}
                   </p>
                   {isProcessing && (
                     <div className="w-48 h-1 bg-slate-100 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-blue-500 transition-all duration-500 ease-out rounded-full" 
+                        className="h-full bg-indigo-600 transition-all duration-500 ease-out rounded-full" 
                         style={{ width: `${doc.progress || 0}%` }}
                       />
                     </div>
@@ -137,38 +231,85 @@ function DocumentRow({ doc, onClick, onDelete, onMove }: { doc: any, onClick: ()
           </div>
         </div>
       </td>
+
       <td className="px-6 py-4 text-[12px] font-medium text-slate-500 whitespace-nowrap">
         {doc.fileSize ? (doc.fileSize / 1024 / 1024).toFixed(2) : "0.00"} MB
       </td>
+
+      {/* Trạng thái & Nút mở Tracker */}
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={cn(
-          "px-3 py-1 rounded-full text-[11px] font-bold tracking-wide border",
-          isProcessing ? "bg-amber-50 text-amber-600 border-amber-200/50" : 
-          isFailed ? "bg-red-50 text-red-600 border-red-200/50" : 
-          "bg-green-50 text-green-600 border-green-200/50"
-        )}>
-          {doc.status === 'completed' ? 'Hoàn thành' : isProcessing ? 'Đang xử lý' : 'Lỗi'}
-        </span>
+        <button
+          onClick={onOpenTracker}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide border transition-all hover:scale-105 shadow-2xs",
+            isProcessing
+              ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
+              : isFailed
+              ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+              : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+          )}
+          title="Nhấp để xem chi tiết các bước xử lý Pipeline"
+        >
+          <Cpu size={12} />
+          {doc.status === "completed"
+            ? "Hoàn thành"
+            : isProcessing
+            ? `Pipeline (${doc.progress || 0}%)`
+            : "Lỗi xử lý"}
+        </button>
       </td>
+
       <td className="px-6 py-4 text-[12px] font-medium text-slate-500 whitespace-nowrap">
         {doc.createdAt && !isNaN(new Date(doc.createdAt).getTime())
           ? new Date(doc.createdAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'short', day: 'numeric' })
           : "---"}
       </td>
+
       <td className="px-6 py-4 text-right">
-        <div className="flex items-center justify-end gap-1.5 transition-opacity duration-200">
-          <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Xem chi tiết">
-            <Eye size={16} />
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={onOpenVersion}
+            className="p-2 text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200/60 rounded-xl transition-colors"
+            title="Quản lý phiên bản tài liệu (v1, v2...)"
+          >
+            <History size={15} />
           </button>
-          <button className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Tải về">
-            <Download size={16} />
+
+          <button
+            onClick={onOpenShare}
+            className="p-2 text-blue-600 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 rounded-xl transition-colors"
+            title="Chia sẻ tài liệu & Phân quyền"
+          >
+            <Share2 size={15} />
           </button>
+          
+          <button
+            onClick={onOpenTracker}
+            className="p-2 text-amber-600 bg-amber-50/80 hover:bg-amber-100 border border-amber-200/60 rounded-xl transition-colors"
+            title="Xem Tiến trình Pipeline"
+          >
+            <Cpu size={15} />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (doc.fileUrl) {
+                window.open(doc.fileUrl, "_blank");
+              }
+            }}
+            className="p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl transition-colors"
+            title="Tải về file gốc"
+          >
+            <Download size={15} />
+          </button>
+
           <button 
             onClick={onDelete}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
-            title="Thao tác khác"
+            className="p-2 text-rose-600 bg-rose-50/80 hover:bg-rose-100 border border-rose-200/60 rounded-xl transition-colors" 
+            title="Xóa tài liệu"
           >
-            <MoreVertical size={16} />
+            <Trash2 size={15} />
           </button>
         </div>
       </td>

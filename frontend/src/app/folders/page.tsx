@@ -24,6 +24,9 @@ export default function FoldersPage() {
   const [newFolderName, setNewFolderName] = useState("");
   const [selectedColor, setSelectedColor] = useState("#2563eb");
   const [editingFolder, setEditingFolder] = useState<any>(null);
+  const [activeFilter, setActiveFilter] = useState<"all" | "personal" | "shared">("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name">("newest");
+  const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
 
   const colors = [
     "#2563eb", "#7c3aed", "#db2777", "#dc2626",
@@ -45,6 +48,27 @@ export default function FoldersPage() {
       setLoading(false);
     }
   };
+
+  // Tính toán danh sách thư mục sau khi Lọc & Sắp xếp
+  const filteredFolders = folders
+    .filter((folder) => {
+      const isShared = folder.sharedWith && folder.sharedWith.length > 0;
+      if (activeFilter === "personal") return !isShared;
+      if (activeFilter === "shared") return isShared;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "newest") {
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      }
+      if (sortBy === "oldest") {
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      }
+      if (sortBy === "name") {
+        return (a.name || "").localeCompare(b.name || "", "vi");
+      }
+      return 0;
+    });
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,24 +161,83 @@ export default function FoldersPage() {
             {/* Filter & Sort Bar */}
             <div className="flex justify-between items-center bg-white rounded-2xl p-2 shadow-sm border border-slate-100">
               <div className="flex gap-1 bg-slate-50 p-1 rounded-xl">
-                <button className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm">Tất cả</button>
-                <button className="px-5 py-2 text-slate-600 hover:bg-slate-200/50 rounded-lg text-sm font-semibold transition-colors">Cá nhân</button>
-                <button className="px-5 py-2 text-slate-600 hover:bg-slate-200/50 rounded-lg text-sm font-semibold transition-colors">Đã chia sẻ</button>
+                <button
+                  onClick={() => setActiveFilter("all")}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                    activeFilter === "all"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-200/50 font-semibold"
+                  }`}
+                >
+                  Tất cả ({folders.length})
+                </button>
+                <button
+                  onClick={() => setActiveFilter("personal")}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                    activeFilter === "personal"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-200/50 font-semibold"
+                  }`}
+                >
+                  Cá nhân ({folders.filter(f => !f.sharedWith || f.sharedWith.length === 0).length})
+                </button>
+                <button
+                  onClick={() => setActiveFilter("shared")}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                    activeFilter === "shared"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-200/50 font-semibold"
+                  }`}
+                >
+                  Đã chia sẻ ({folders.filter(f => f.sharedWith && f.sharedWith.length > 0).length})
+                </button>
               </div>
-              <div className="flex items-center gap-2 px-4 text-sm font-medium text-slate-500 cursor-pointer hover:text-slate-800">
-                <span>Sắp xếp theo:</span>
-                <span className="font-bold text-blue-600">Mới nhất</span>
-                <ChevronRight size={16} className="rotate-90" />
+
+              {/* Dropdown sắp xếp */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  <span>Sắp xếp theo:</span>
+                  <span className="font-bold text-blue-600">
+                    {sortBy === "newest" ? "Mới nhất" : sortBy === "oldest" ? "Cũ nhất" : "Tên A-Z"}
+                  </span>
+                  <ChevronRight size={16} className={`transition-transform ${isSortDropdownOpen ? "-rotate-90" : "rotate-90"}`} />
+                </button>
+
+                {isSortDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden py-1">
+                    <button
+                      onClick={() => { setSortBy("newest"); setIsSortDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between ${sortBy === "newest" ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-700"}`}
+                    >
+                      Mới nhất
+                    </button>
+                    <button
+                      onClick={() => { setSortBy("oldest"); setIsSortDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between ${sortBy === "oldest" ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-700"}`}
+                    >
+                      Cũ nhất
+                    </button>
+                    <button
+                      onClick={() => { setSortBy("name"); setIsSortDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-slate-50 transition-colors flex items-center justify-between ${sortBy === "name" ? "text-blue-600 font-bold bg-blue-50/50" : "text-slate-700"}`}
+                    >
+                      Tên A-Z
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Quick Access Section (Mock) */}
+            {/* Quick Access Section */}
             <div>
               <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <span className="text-blue-600">⚡</span> Truy cập nhanh
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {folders.slice(0, 2).map((folder) => (
+                {filteredFolders.slice(0, 2).map((folder) => (
                   <div key={`quick-${folder._id}`} onClick={() => router.push(`/folders/${folder._id}`)} className="bg-white rounded-[20px] p-6 border border-slate-200/80 shadow-sm cursor-pointer hover:shadow-md transition-all flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white mb-4" style={{ backgroundColor: folder.color || '#2563eb' }}>
                       <FolderIcon size={32} fill="currentColor" fillOpacity={0.2} />
@@ -176,10 +259,15 @@ export default function FoldersPage() {
             <div>
               <div className="flex justify-between items-end mb-6">
                 <h2 className="text-[17px] font-bold text-slate-700">Tất cả thư mục</h2>
-                <span className="text-[11px] text-slate-400 font-semibold uppercase">{folders.length} thư mục</span>
+                <span className="text-[11px] text-slate-400 font-semibold uppercase">{filteredFolders.length} thư mục</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {folders.map((folder) => (
+                {filteredFolders.length === 0 ? (
+                  <div className="col-span-3 py-12 text-center text-slate-400 font-medium text-sm">
+                    Không tìm thấy thư mục nào phù hợp với bộ lọc.
+                  </div>
+                ) : (
+                  filteredFolders.map((folder) => (
                   <motion.div
                     key={folder._id}
                     initial={{ opacity: 0, y: 10 }}
@@ -229,13 +317,20 @@ export default function FoldersPage() {
                     </div>
 
                     <div className="flex justify-between items-end mt-2">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-md tracking-wider">
-                        DỰ ÁN CHUNG
-                      </span>
-                      <span className="text-[12px] font-medium text-slate-500">0 tài liệu</span>
+                      {folder.sharedWith && folder.sharedWith.length > 0 ? (
+                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-md tracking-wider">
+                          ĐÃ CHIA SẺ
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-black rounded-md tracking-wider">
+                          CÁ NHÂN
+                        </span>
+                      )}
+                      <span className="text-[12px] font-medium text-slate-500">{folder.docCount || 0} tài liệu</span>
                     </div>
                   </motion.div>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>

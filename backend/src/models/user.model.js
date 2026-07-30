@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false },
     verificationToken: { type: String },
     verificationTokenExpires: { type: Date },
+
+    // Tracking & Auth Provider
+    lastLogin: { type: Date },
+    provider: { type: String, enum: ["local", "google"], default: "local" },
+    loginCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

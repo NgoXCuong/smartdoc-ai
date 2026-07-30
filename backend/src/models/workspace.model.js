@@ -11,6 +11,19 @@ const workspaceSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    inviteCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
     ownerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",

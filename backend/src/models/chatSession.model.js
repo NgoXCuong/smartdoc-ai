@@ -14,6 +14,16 @@ const chatSessionSchema = new mongoose.Schema(
         required: true,
       },
     ],
+    workspaceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Workspace",
+      default: null,
+    },
+    mode: {
+      type: String,
+      enum: ["personal", "workspace"],
+      default: "personal",
+    },
     title: {
       type: String,
       required: true,
@@ -23,6 +33,22 @@ const chatSessionSchema = new mongoose.Schema(
     isPinned: {
       type: Boolean,
       default: false,
+    },
+    lastMessageAt: {
+      type: Date,
+      default: Date.now,
+    },
+    messageCount: {
+      type: Number,
+      default: 0,
+    },
+    temperature: {
+      type: Number,
+      default: 0.3,
+    },
+    model: {
+      type: String,
+      default: "gemini-flash-latest",
     },
   },
   { timestamps: true },

@@ -223,8 +223,7 @@ export default function ChatSidebar({
         {/* Chat History */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Recent Conversations</h3>
-            <History size={14} className="text-slate-400" />
+            <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lịch sử trò chuyện</h3>
           </div>
           <div className="space-y-1">
             {sessions.map(session => (

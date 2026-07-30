@@ -10,7 +10,6 @@ import { isAdmin } from "../middlewares/admin.middleware.js";
 
 const router = express.Router();
 
-// Tất cả route trong admin đều yêu cầu Đăng nhập và là Admin
 router.use(verifyToken, isAdmin);
 
 router.get("/users", getAllUsers);

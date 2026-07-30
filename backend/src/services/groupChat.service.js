@@ -75,7 +75,7 @@ const groupChatService = {
         model: "gemini-embedding-001",
       });
 
-      const collection = mongoose.connection.db.collection("documents");
+      const collection = mongoose.connection.db.collection("document_chunks");
       const vectorStore = new MongoDBAtlasVectorSearch(embeddings, {
         collection,
         indexName: "vector_index",
@@ -84,13 +84,55 @@ const groupChatService = {
       });
 
       // Vector search trong toàn bộ tài liệu của workspace
-      const chunks = await vectorStore.similaritySearch(question, 5, {
-        preFilter: {
-          source: {
-            $in: docIds.map((id) => new mongoose.Types.ObjectId(id)),
+      const objectDocIds = docIds.map((id) => new mongoose.Types.ObjectId(id));
+      const stringDocIds = docIds.map((id) => id.toString());
+
+      let chunks = [];
+      try {
+        chunks = await vectorStore.similaritySearch(question, 5, {
+          preFilter: {
+            $or: [
+              { source: { $in: objectDocIds } },
+              { docId: { $in: objectDocIds } },
+              { "metadata.source": { $in: objectDocIds } },
+              { "metadata.docId": { $in: objectDocIds } },
+              { source: { $in: stringDocIds } },
+              { docId: { $in: stringDocIds } },
+              { "metadata.source": { $in: stringDocIds } },
+              { "metadata.docId": { $in: stringDocIds } }
+            ]
           },
-        },
-      });
+        });
+      } catch (vectorErr) {
+        logger.warn("[GroupChat] Vector search error:", vectorErr);
+      }
+
+      // Fallback truy vấn DB trực tiếp nếu vector search trả về 0 chunks
+      if (chunks.length === 0) {
+        logger.info("[GroupChat] Vector search trả về 0 chunks, tiến hành truy vấn trực tiếp từ MongoDB...");
+        const rawChunks = await collection.find({
+          $or: [
+            { docId: { $in: objectDocIds } },
+            { source: { $in: objectDocIds } },
+            { "metadata.docId": { $in: objectDocIds } },
+            { "metadata.source": { $in: objectDocIds } },
+            { docId: { $in: stringDocIds } },
+            { source: { $in: stringDocIds } },
+            { "metadata.docId": { $in: stringDocIds } },
+            { "metadata.source": { $in: stringDocIds } }
+          ]
+        }).limit(15).toArray();
+
+        chunks = rawChunks.map(rc => ({
+          pageContent: rc.text || rc.pageContent || "",
+          metadata: {
+            fileName: rc.fileName || rc.metadata?.fileName || "Tài liệu",
+            pageNumber: rc.pageNumber || rc.metadata?.pageNumber || 1,
+            source: rc.docId || rc.source || rc.metadata?.docId || rc.metadata?.source,
+            ...rc.metadata
+          }
+        })).filter(c => c.pageContent);
+      }
 
       if (chunks.length === 0) {
         return {

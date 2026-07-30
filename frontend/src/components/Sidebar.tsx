@@ -12,7 +12,8 @@ import {
   Settings,
   Folder,
   TrendingUp,
-  Users
+  Users,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authApi } from "@/services/api";
@@ -23,7 +24,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const { totalUnread } = useNotifications();
+  const { totalUnreadMessages } = useNotifications();
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -79,12 +80,20 @@ export default function Sidebar() {
           icon={<MessageSquare size={18} />}
           label="Trợ lý AI"
           active={pathname.startsWith("/chat")}
+          badge="RAG"
         />
         <NavItem
           href="/folders"
           icon={<Folder size={18} />}
-          label="Dự án"
+          label="Dự án & Thư mục"
           active={pathname.startsWith("/folders")}
+        />
+        <NavItem
+          href="/workspaces"
+          icon={<Users size={18} />}
+          label="Nhóm làm việc"
+          active={pathname.startsWith("/workspaces")}
+          badge={totalUnreadMessages || undefined}
         />
         <NavItem
           href="/settings"
@@ -93,11 +102,10 @@ export default function Sidebar() {
           active={pathname.startsWith("/settings")}
         />
         <NavItem
-          href="/workspaces"
-          icon={<Users size={18} />}
-          label="Nhóm làm việc"
-          active={pathname.startsWith("/workspaces")}
-          badge={totalUnread}
+          href="/activity-logs"
+          icon={<History size={18} />}
+          label="Nhật ký hoạt động"
+          active={pathname.startsWith("/activity-logs")}
         />
 
         {user.role === "admin" && (
@@ -111,21 +119,30 @@ export default function Sidebar() {
             <NavItem
               href="/admin/analytics"
               icon={<TrendingUp size={18} />}
-              label="Giám sát"
+              label="Giám sát AI"
               active={pathname === "/admin/analytics"}
             />
           </div>
         )}
       </nav>
 
-      <div className="p-4 mt-auto">
+      {/* AI System Status Indicator */}
+      <div className="mx-4 mb-2 p-3 bg-emerald-50/80 border border-emerald-200/60 rounded-xl flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-[11px] font-bold text-emerald-800">AI Core Engine</span>
+        </div>
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-200/60 text-emerald-800 uppercase tracking-wide">Online</span>
+      </div>
+
+      <div className="p-4 pt-2">
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200 cursor-pointer group">
-          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
             {user.username?.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 overflow-hidden">
             <p className="text-sm font-bold text-slate-800 truncate leading-tight mb-0.5">{user.username}</p>
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Pro Plan</p>
+            <p className="text-[11px] font-semibold text-indigo-600 truncate">Pro Workspace Plan</p>
           </div>
           <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 transition-colors p-1.5 rounded-lg opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200" title="Đăng xuất">
             <LogOut size={14} />

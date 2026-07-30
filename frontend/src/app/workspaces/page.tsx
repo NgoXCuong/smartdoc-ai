@@ -11,10 +11,12 @@ import {
   Crown,
   ChevronRight,
   Search,
+  Settings,
+  Link as LinkIcon
 } from "lucide-react";
 import { workspaceApi } from "@/services/api";
 import { toast } from "react-hot-toast";
-import { cn } from "@/lib/utils";
+import WorkspaceModal from "@/components/chat/WorkspaceModal";
 
 export default function WorkspacesPage() {
   const router = useRouter();
@@ -26,6 +28,7 @@ export default function WorkspacesPage() {
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<any | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -75,6 +78,23 @@ export default function WorkspacesPage() {
 
   const currentUserId = currentUser?._id || currentUser?.id;
 
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+
+  const handleJoinByCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCode.trim()) return;
+
+    let code = joinCode.trim();
+    // Nếu dán cả đường dẫn https://domain/join-workspace/ABCDEF12 -> lấy phần cuối
+    if (code.includes("/join-workspace/")) {
+      const parts = code.split("/join-workspace/");
+      code = parts[parts.length - 1].replace(/\//g, "");
+    }
+
+    router.push(`/join-workspace/${code}`);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/50">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -85,13 +105,22 @@ export default function WorkspacesPage() {
             Cộng tác và chat nhóm với đồng nghiệp
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition-colors"
-        >
-          <Plus size={15} />
-          Tạo nhóm mới
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors border border-slate-200"
+          >
+            <LinkIcon size={15} className="text-indigo-600" />
+            Tham gia bằng mã
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-semibold text-sm shadow-sm transition-colors"
+          >
+            <Plus size={15} />
+            Tạo nhóm mới
+          </button>
+        </div>
       </div>
 
       <div className="px-8 py-6 max-w-4xl mx-auto">
@@ -143,14 +172,18 @@ export default function WorkspacesPage() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                className="group bg-white border border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer relative"
                 onClick={() => router.push(`/workspaces/${ws._id}/chat`)}
               >
                 {/* Card Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                      {ws.name.charAt(0).toUpperCase()}
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm overflow-hidden">
+                      {ws.avatar ? (
+                        <img src={ws.avatar} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        ws.name.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
@@ -164,10 +197,24 @@ export default function WorkspacesPage() {
                       </p>
                     </div>
                   </div>
-                  <ChevronRight
-                    size={15}
-                    className="text-slate-300 group-hover:text-indigo-400 transition-colors mt-0.5"
-                  />
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedWorkspace(ws);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                      title="Cài đặt & Mã mời"
+                    >
+                      <Settings size={15} />
+                    </button>
+                    <ChevronRight
+                      size={15}
+                      className="text-slate-300 group-hover:text-indigo-400 transition-colors"
+                    />
+                  </div>
                 </div>
 
                 {/* Description */}
@@ -276,6 +323,73 @@ export default function WorkspacesPage() {
                 )}
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Manage / Invite Modal ────────────────────────────────────────── */}
+      {selectedWorkspace && (
+        <WorkspaceModal
+          workspace={selectedWorkspace}
+          onClose={() => setSelectedWorkspace(null)}
+          onSuccess={() => {
+            setSelectedWorkspace(null);
+            fetchWorkspaces();
+          }}
+        />
+      )}
+
+      {/* ── Join Workspace with Code Modal ───────────────────────────────── */}
+      {showJoinModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowJoinModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
+              <LinkIcon size={24} />
+            </div>
+            <h2 className="text-lg font-bold text-slate-800 mb-1">
+              Tham gia bằng Mã mời
+            </h2>
+            <p className="text-xs text-slate-400 mb-5">
+              Nhập mã mời (ví dụ: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-indigo-600">A1B2C3D4</code>) hoặc dán toàn bộ đường dẫn mời công khai.
+            </p>
+
+            <form onSubmit={handleJoinByCode} className="space-y-4">
+              <div>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Nhập mã mời hoặc dán đường dẫn..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={!joinCode.trim()}
+                  className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm transition-colors disabled:opacity-50"
+                >
+                  Tiếp tục →
+                </button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}

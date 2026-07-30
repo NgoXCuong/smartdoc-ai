@@ -103,6 +103,8 @@ const authService = {
       user.refreshTokens = [];
     }
     user.refreshTokens.push(refreshToken);
+    user.lastLogin = new Date();
+    user.loginCount = (user.loginCount || 0) + 1;
     await user.save();
 
     return { user, accessToken, refreshToken };

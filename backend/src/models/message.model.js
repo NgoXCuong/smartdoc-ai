@@ -17,13 +17,47 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    prompt: {
+      type: String,
+      default: "",
+    },
+    answer: {
+      type: String,
+      default: "",
+    },
+    model: {
+      type: String,
+      default: "gemini-flash-latest",
+    },
+    temperature: {
+      type: Number,
+      default: 0.3,
+    },
+    promptTokens: {
+      type: Number,
+      default: 0,
+    },
+    completionTokens: {
+      type: Number,
+      default: 0,
+    },
+    totalTokens: {
+      type: Number,
+      default: 0,
+    },
+    latency: {
+      type: Number,
+      default: 0, // ms
+    },
     metadata: {
       sources: [
         {
           docId: mongoose.Schema.Types.ObjectId,
+          chunkId: String,
           fileName: String,
           pageNumber: Number,
           pageContent: String,
+          similarityScore: Number,
         },
       ],
     },

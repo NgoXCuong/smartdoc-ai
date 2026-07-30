@@ -7,6 +7,7 @@ import { ArrowLeft, Users, FileText, Settings, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { workspaceApi } from "@/services/api";
 import GroupChatPanel from "@/components/chat/GroupChatPanel";
+import WorkspaceModal from "@/components/chat/WorkspaceModal";
 import { toast } from "react-hot-toast";
 
 export default function WorkspaceChatPage() {
@@ -17,6 +18,7 @@ export default function WorkspaceChatPage() {
   const [workspace, setWorkspace] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -60,6 +62,7 @@ export default function WorkspaceChatPage() {
 
   const memberCount = workspace.members?.length || 0;
   const currentUserId = currentUser._id || currentUser.id;
+  const isOwner = workspace.ownerId === currentUserId || workspace.ownerId?._id === currentUserId;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
@@ -138,11 +141,22 @@ export default function WorkspaceChatPage() {
         <div className="hidden xl:flex w-64 shrink-0 flex-col gap-4 p-4 pr-6 overflow-y-auto">
           {/* Members List */}
           <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={13} className="text-slate-400" />
-              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                Thành viên ({memberCount})
-              </h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Users size={13} className="text-slate-400" />
+                <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                  Thành viên ({memberCount})
+                </h3>
+              </div>
+              {isOwner && (
+                <button
+                  onClick={() => setShowWorkspaceModal(true)}
+                  className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-700 rounded-lg transition-colors"
+                  title="Quản lý Tổ chức"
+                >
+                  <Settings size={14} />
+                </button>
+              )}
             </div>
             <div className="space-y-2.5">
               {workspace.members?.map((m: any, i: number) => {
@@ -190,6 +204,17 @@ export default function WorkspaceChatPage() {
           </div>
         </div>
       </div>
+
+      {showWorkspaceModal && (
+        <WorkspaceModal
+          workspace={workspace}
+          onClose={() => setShowWorkspaceModal(false)}
+          onSuccess={() => {
+            setShowWorkspaceModal(false);
+            fetchWorkspace();
+          }}
+        />
+      )}
     </div>
   );
 }

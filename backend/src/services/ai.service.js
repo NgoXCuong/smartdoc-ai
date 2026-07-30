@@ -9,7 +9,7 @@ const aiService = {
    */
   generateMetadata: async (text) => {
     if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("GOOGLE_API_KEY is missing in environment variables");
+      throw new Error("GOOGLE_API_KEY bị thiếu trong các biến môi trường");
     }
 
     try {
@@ -37,7 +37,7 @@ const aiService = {
 
       const response = await model.invoke(messages);
       const content = response.content;
-      logger.info(`[AI] Raw response from Gemini received (length: ${content?.length || 0})`);
+      logger.info(`[AI] Phản hồi thô từ Gemini đã nhận được (độ dài: ${content?.length || 0})`);
       let cleanContent = content;
       if (typeof content === 'string') {
         cleanContent = content.replace(/```json\n?|```/g, "").trim();
@@ -60,7 +60,7 @@ const aiService = {
    */
   extractStructuredData: async (text, keys) => {
     if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("GOOGLE_API_KEY is missing in environment variables");
+      throw new Error("GOOGLE_API_KEY bị thiếu trong các biến môi trường");
     }
 
     try {
@@ -88,7 +88,7 @@ const aiService = {
 
       const response = await model.invoke(messages);
       let content = response.content;
-      logger.info(`[AI Extraction] Raw response received`);
+      logger.info(`[AI Extraction] Phản hồi thô đã nhận được`);
       
       if (typeof content === 'string') {
         content = content.replace(/```json\n?|```/g, "").trim();

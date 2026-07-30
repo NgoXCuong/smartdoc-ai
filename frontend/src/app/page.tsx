@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
-import { documentApi, folderApi, workspaceApi } from "@/services/api";
+import { documentApi, folderApi, workspaceApi, usageApi } from "@/services/api";
 import { useSocket } from "@/hooks/useSocket";
 
 // Dashboard Components
@@ -16,13 +16,14 @@ import MoveDocumentModal from "@/components/dashboard/MoveDocumentModal";
 export default function Dashboard() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [folders, setFolders] = useState<any[]>([]);
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
+  const [usageData, setUsageData] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -34,22 +35,26 @@ export default function Dashboard() {
       setUser(parsedUser);
       fetchWorkspaces();
       fetchFolders();
+      fetchUsage();
     }
   }, [router]);
 
   useEffect(() => {
     if (user) {
-      fetchDocuments(true, currentWorkspaceId);
+      fetchDocuments(true, currentWorkspaceId, searchQuery);
+      // Cache current workspace to localStorage for the global ClientLayout uploader
+      localStorage.setItem("activeWorkspaceId", currentWorkspaceId || "");
     }
-  }, [currentWorkspaceId, user]);
+  }, [currentWorkspaceId, user, searchQuery]);
 
   useEffect(() => {
-    const handleTriggerUpload = () => {
-      document.getElementById('global-upload-input')?.click();
+    const handleDocumentUploaded = () => {
+      fetchDocuments(false, currentWorkspaceId, searchQuery); // background refresh
+      fetchUsage(); // fetch updated storage stats
     };
-    window.addEventListener('trigger-upload', handleTriggerUpload);
-    return () => window.removeEventListener('trigger-upload', handleTriggerUpload);
-  }, []);
+    window.addEventListener("document-uploaded", handleDocumentUploaded);
+    return () => window.removeEventListener("document-uploaded", handleDocumentUploaded);
+  }, [currentWorkspaceId, searchQuery]);
 
   const socket = useSocket(user?._id || user?.id || null);
 
@@ -61,7 +66,8 @@ export default function Dashboard() {
         } else if (data.status === "failed") {
           toast.error(`Lỗi xử lý tài liệu "${data.fileName}": ${data.errorMessage}`);
         }
-        fetchDocuments(false, currentWorkspaceId); // background refresh
+        fetchDocuments(false, currentWorkspaceId, searchQuery); // background refresh
+        fetchUsage(); // refresh usage
       });
 
       socket.on("document_progress", (data) => {
@@ -73,7 +79,8 @@ export default function Dashboard() {
           )
         );
         if (data.status === "completed") {
-          fetchDocuments(false, currentWorkspaceId); // Refresh to get tags & summary
+          fetchDocuments(false, currentWorkspaceId, searchQuery); // Refresh to get tags & summary
+          fetchUsage();
         }
       });
 
@@ -82,7 +89,7 @@ export default function Dashboard() {
         socket.off("document_progress");
       };
     }
-  }, [socket, currentWorkspaceId]);
+  }, [socket, currentWorkspaceId, searchQuery]);
 
   const fetchWorkspaces = async () => {
     try {
@@ -102,39 +109,24 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDocuments = async (showLoading = true, workspaceId: string | null = null) => {
+  const fetchUsage = async () => {
+    try {
+      const res = await usageApi.getMe();
+      setUsageData(res.data);
+    } catch (error) {
+      console.error("Fetch usage stats error:", error);
+    }
+  };
+
+  const fetchDocuments = async (showLoading = true, workspaceId: string | null = null, search = "") => {
     if (showLoading) setLoading(true);
     try {
-      const res = await documentApi.getAll(1, 50, "", "", workspaceId || "");
+      const res = await documentApi.getAll(1, 50, search, "", workspaceId || "");
       setDocuments(res.data.documents || []);
     } catch (error) {
       console.error("Fetch docs error:", error);
     } finally {
       if (showLoading) setLoading(false);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File quá lớn. Vui lòng chọn file dưới 20MB.");
-      return;
-    }
-
-    setUploading(true);
-    const toastId = toast.loading("Đang tải tài liệu lên...");
-
-    try {
-      await documentApi.upload(file, currentWorkspaceId);
-      toast.success("Tải lên thành công! Hệ thống đang xử lý...", { id: toastId });
-      fetchDocuments(true, currentWorkspaceId);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Lỗi khi tải lên", { id: toastId });
-    } finally {
-      setUploading(false);
-      if (e.target) e.target.value = ''; // Reset input
     }
   };
 
@@ -146,7 +138,7 @@ export default function Dashboard() {
     try {
       await documentApi.delete(docId);
       toast.success("Đã xóa tài liệu", { id: toastId });
-      fetchDocuments(true, currentWorkspaceId);
+      fetchDocuments(true, currentWorkspaceId, searchQuery);
     } catch (error: any) {
       toast.error(error.response?.data?.message || "Lỗi khi xóa", { id: toastId });
     }
@@ -158,7 +150,7 @@ export default function Dashboard() {
       await folderApi.moveDocument(selectedDoc._id, folderId);
       toast.success(folderId ? "Đã chuyển tài liệu vào thư mục" : "Đã đưa tài liệu ra ngoài");
       setIsMoveModalOpen(false);
-      fetchDocuments(true, currentWorkspaceId);
+      fetchDocuments(true, currentWorkspaceId, searchQuery);
     } catch (error) {
       toast.error("Lỗi khi chuyển tài liệu");
     }
@@ -166,6 +158,16 @@ export default function Dashboard() {
 
   const completedDocs = documents.filter(d => d.status === "completed").length;
   const processingDocs = documents.filter(d => d.status === "processing" || d.status === "pending").length;
+
+  const usedStorage = usageData?.totalStorageBytes || 0;
+  const maxStorage = usageData?.quota?.maxStorageBytes || 1073741824; // 1GB default
+  const storagePercent = Math.min((usedStorage / maxStorage) * 100, 100);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 MB";
+    const mb = bytes / (1024 * 1024);
+    return mb < 1000 ? `${mb.toFixed(2)} MB` : `${(mb / 1024).toFixed(2)} GB`;
+  };
 
   if (!user) return null;
 
@@ -175,6 +177,7 @@ export default function Dashboard() {
         workspaces={workspaces}
         currentWorkspaceId={currentWorkspaceId}
         setCurrentWorkspaceId={setCurrentWorkspaceId}
+        onSearchChange={setSearchQuery}
       />
 
       <div className="flex-1 overflow-y-auto p-10 bg-slate-50/50 relative">
@@ -197,13 +200,12 @@ export default function Dashboard() {
           <DocumentTable
             documents={documents}
             loading={loading}
-            uploading={uploading}
-            handleFileUpload={handleFileUpload}
             handleDelete={handleDelete}
             onOpenMoveModal={(doc) => {
               setSelectedDoc(doc);
               setIsMoveModalOpen(true);
             }}
+            onRefresh={() => fetchDocuments(true, currentWorkspaceId, searchQuery)}
           />
 
           {/* Bottom Feature Cards */}
@@ -213,7 +215,10 @@ export default function Dashboard() {
               <p className="text-blue-100/90 mb-6 text-[13px] max-w-sm leading-relaxed">
                 Sử dụng AI để tóm tắt, tìm kiếm thông tin và phân tích tài liệu của bạn trong vài giây.
               </p>
-              <button className="bg-white text-[#0A47B7] px-6 py-2.5 rounded-full font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors z-10">
+              <button 
+                onClick={() => router.push("/chat")}
+                className="bg-white text-[#0A47B7] px-6 py-2.5 rounded-full font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors z-10"
+              >
                 Bắt đầu ngay
               </button>
             </div>
@@ -221,28 +226,22 @@ export default function Dashboard() {
             <div className="col-span-1 bg-[#F0F5FF] rounded-2xl p-7 flex flex-col justify-center">
               <h3 className="text-[15px] font-bold text-slate-800 mb-6">Dung lượng lưu trữ</h3>
               <div className="w-full h-1.5 bg-blue-200/50 rounded-full mb-3 overflow-hidden">
-                <div className="h-full bg-blue-600 rounded-full" style={{ width: '25%' }}></div>
+                <div className="h-full bg-blue-600 rounded-full" style={{ width: `${storagePercent}%` }}></div>
               </div>
               <div className="flex justify-between items-center text-[11px] font-semibold mb-6">
-                <span className="text-slate-600">250MB đã dùng</span>
-                <span className="text-slate-400">1GB tổng cộng</span>
+                <span className="text-slate-600">{formatBytes(usedStorage)} đã dùng</span>
+                <span className="text-slate-400">{formatBytes(maxStorage)} tổng cộng</span>
               </div>
-              <button className="w-full bg-transparent border border-blue-200 text-blue-600 hover:bg-blue-100/50 py-2.5 rounded-full font-bold text-sm transition-colors">
+              <button 
+                onClick={() => router.push("/settings")}
+                className="w-full bg-transparent border border-blue-200 text-blue-600 hover:bg-blue-100/50 py-2.5 rounded-full font-bold text-sm transition-colors"
+              >
                 Nâng cấp dung lượng
               </button>
             </div>
           </div>
         </motion.div>
       </div>
-
-      <input
-        type="file"
-        id="global-upload-input"
-        className="hidden"
-        accept=".pdf,.doc,.docx,.txt,.md,image/*"
-        onChange={handleFileUpload}
-        disabled={uploading}
-      />
 
       <MoveDocumentModal
         isOpen={isMoveModalOpen}

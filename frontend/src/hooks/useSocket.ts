@@ -12,8 +12,9 @@ export const useSocket = (userId: string | null) => {
     console.log("[Socket] Initializing connection to:", SOCKET_URL);
     const newSocket = io(SOCKET_URL, {
       withCredentials: true,
-      transports: ["polling", "websocket"], // Polling first is often more reliable for initial handshake
+      transports: ["websocket", "polling"], // Ưu tiên WebSocket, fallback về Polling nếu cần
       reconnectionAttempts: 5,
+      reconnectionDelay: 1000, // Chờ 1 giây trước khi thử kết nối lại
     });
 
     newSocket.on("connect", () => {
