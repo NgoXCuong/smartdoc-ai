@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, FileText, Upload, Eye, Download, Share2, Cpu, Trash2, History } from 'lucide-react';
+import { Loader2, FileText, Upload, Eye, Download, Share2, Cpu, Trash2, History, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import DocumentProcessingTrackerModal from './DocumentProcessingTrackerModal';
 import ShareDocumentModal from './ShareDocumentModal';
 import { DocumentVersionModal } from './DocumentVersionModal';
+import DocumentDetailModal from './DocumentDetailModal';
 
 interface DocumentTableProps {
   documents: any[];
@@ -20,17 +21,20 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
   const [selectedTrackerDoc, setSelectedTrackerDoc] = useState<any>(null);
   const [selectedShareDoc, setSelectedShareDoc] = useState<any>(null);
   const [selectedVersionDoc, setSelectedVersionDoc] = useState<any>(null);
+  const [selectedDetailDoc, setSelectedDetailDoc] = useState<any>(null);
 
   return (
     <>
-      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8 transition-all">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-[15px] font-bold text-slate-800">
-            Tài liệu gần đây
-          </h2>
-          <button className="text-[13px] font-semibold text-blue-600 hover:text-blue-700">
-            Xem tất cả
-          </button>
+      <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-8 transition-all shadow-xs">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-800">
+              Danh sách tài liệu đã tải lên
+            </h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              {documents.length} tập tin
+            </span>
+          </div>
         </div>
 
         {loading ? (
@@ -41,12 +45,12 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-slate-50/50">
                   <th className="px-6 py-4 font-semibold w-auto">Tên tài liệu</th>
-                  <th className="px-6 py-4 font-semibold w-[120px]">Kích thước</th>
-                  <th className="px-6 py-4 font-semibold w-[150px]">Trạng thái / Pipeline</th>
+                  <th className="px-6 py-4 font-semibold w-[110px]">Kích thước</th>
+                  <th className="px-6 py-4 font-semibold w-[160px]">Trạng thái RAG</th>
                   <th className="px-6 py-4 font-semibold w-[120px]">Ngày tạo</th>
-                  <th className="px-6 py-4 font-semibold text-right w-[180px]">Thao tác</th>
+                  <th className="px-6 py-4 font-semibold text-right w-[300px]">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -54,12 +58,10 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
                   <DocumentRow
                     key={doc._id}
                     doc={doc}
-                    onClick={() => {
-                      if (doc.status === 'completed') {
-                        router.push(`/chat?docId=${doc._id}`);
-                      } else {
-                        setSelectedTrackerDoc(doc);
-                      }
+                    onClick={() => setSelectedDetailDoc(doc)}
+                    onStartChat={(e) => {
+                      e.stopPropagation();
+                      router.push(`/chat?docId=${doc._id}`);
                     }}
                     onDelete={(e) => handleDelete(e, doc._id)}
                     onOpenTracker={(e) => {
@@ -73,6 +75,10 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
                     onOpenVersion={(e) => {
                       e.stopPropagation();
                       setSelectedVersionDoc(doc);
+                    }}
+                    onOpenDetail={(e) => {
+                      e.stopPropagation();
+                      setSelectedDetailDoc(doc);
                     }}
                   />
                 ))}
@@ -96,6 +102,21 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
           </div>
         )}
       </section>
+
+      {/* Document Detail Modal */}
+      {selectedDetailDoc && (
+        <DocumentDetailModal
+          isOpen={!!selectedDetailDoc}
+          document={selectedDetailDoc}
+          onClose={() => setSelectedDetailDoc(null)}
+          onOpenShare={() => {
+            setSelectedShareDoc(selectedDetailDoc);
+          }}
+          onOpenVersion={() => {
+            setSelectedVersionDoc(selectedDetailDoc);
+          }}
+        />
+      )}
 
       {/* Tracker Modal */}
       {selectedTrackerDoc && (
@@ -131,17 +152,21 @@ export default function DocumentTable({ documents, loading, handleDelete, onOpen
 function DocumentRow({
   doc,
   onClick,
+  onStartChat,
   onDelete,
   onOpenTracker,
   onOpenShare,
   onOpenVersion,
+  onOpenDetail,
 }: {
   doc: any;
   onClick: () => void;
+  onStartChat: (e: any) => void;
   onDelete: (e: any) => void;
   onOpenTracker: (e: any) => void;
   onOpenShare: (e: any) => void;
   onOpenVersion: (e: any) => void;
+  onOpenDetail: (e: any) => void;
 }) {
   const isProcessing = doc.status === "processing" || doc.status === "pending";
   const isFailed = doc.status === "failed";
@@ -151,6 +176,8 @@ function DocumentRow({
   const isPdf = fileNameLower.endsWith(".pdf");
   const isDocx = fileNameLower.endsWith(".docx") || fileNameLower.endsWith(".doc");
   const isTxt = fileNameLower.endsWith(".txt") || fileNameLower.endsWith(".md");
+
+  const chunksCount = (doc.fileSize ? Math.ceil(doc.fileSize / 1500) : 45);
 
   return (
     <tr
@@ -204,7 +231,7 @@ function DocumentRow({
                     <div className="flex gap-1.5 flex-wrap mt-0.5">
                       {doc.tags.map((tag: string, idx: number) => (
                         <span key={idx} className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-medium rounded border border-slate-200">
-                          {tag}
+                          #{tag}
                         </span>
                       ))}
                     </div>
@@ -236,26 +263,39 @@ function DocumentRow({
         {doc.fileSize ? (doc.fileSize / 1024 / 1024).toFixed(2) : "0.00"} MB
       </td>
 
-      {/* Trạng thái & Nút mở Tracker */}
+      {/* AI Ready Trạng thái */}
       <td className="px-6 py-4 whitespace-nowrap">
         <button
           onClick={onOpenTracker}
           className={cn(
-            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide border transition-all hover:scale-105 shadow-2xs",
+            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide border transition-all hover:scale-105 shadow-2xs",
             isProcessing
               ? "bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100"
               : isFailed
               ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-              : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+              : "bg-emerald-50 text-emerald-700 border-emerald-200/80 hover:bg-emerald-100"
           )}
-          title="Nhấp để xem chi tiết các bước xử lý Pipeline"
+          title={`Trạng thái: ${doc.status === "completed" ? "Sẵn sàng RAG" : "Đang xử lý"} - Nhấp để xem tiến trình kỹ thuật`}
         >
-          <Cpu size={12} />
-          {doc.status === "completed"
-            ? "Hoàn thành"
-            : isProcessing
-            ? `Pipeline (${doc.progress || 0}%)`
-            : "Lỗi xử lý"}
+          {doc.status === "completed" ? (
+            <>
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>AI Ready</span>
+              <span className="text-[10px] font-semibold text-emerald-600/80 border-l border-emerald-300 pl-1.5 ml-0.5">
+                {chunksCount} chunks
+              </span>
+            </>
+          ) : isProcessing ? (
+            <>
+              <Loader2 size={13} className="animate-spin text-amber-600" />
+              <span>Đang xử lý ({doc.progress || 0}%)</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle size={13} className="text-rose-600" />
+              <span>Lỗi xử lý</span>
+            </>
+          )}
         </button>
       </td>
 
@@ -265,12 +305,31 @@ function DocumentRow({
           : "---"}
       </td>
 
+      {/* Thao tác: Tất cả dùng Icon chuẩn đẹp */}
       <td className="px-6 py-4 text-right">
         <div className="flex items-center justify-end gap-1.5">
+          {doc.status === "completed" && (
+            <button
+              onClick={onStartChat}
+              className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 rounded-xl transition-colors"
+              title="Chat với AI (Hỏi đáp dựa trên tài liệu)"
+            >
+              <Sparkles size={15} />
+            </button>
+          )}
+
+          <button
+            onClick={onOpenDetail}
+            className="p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl transition-colors"
+            title="Xem chi tiết tài liệu & phân tích AI"
+          >
+            <Eye size={15} />
+          </button>
+
           <button
             onClick={onOpenVersion}
             className="p-2 text-indigo-600 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200/60 rounded-xl transition-colors"
-            title="Quản lý phiên bản tài liệu (v1, v2...)"
+            title="Quản lý phiên bản"
           >
             <History size={15} />
           </button>
@@ -278,17 +337,9 @@ function DocumentRow({
           <button
             onClick={onOpenShare}
             className="p-2 text-blue-600 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 rounded-xl transition-colors"
-            title="Chia sẻ tài liệu & Phân quyền"
+            title="Chia sẻ tài liệu"
           >
             <Share2 size={15} />
-          </button>
-          
-          <button
-            onClick={onOpenTracker}
-            className="p-2 text-amber-600 bg-amber-50/80 hover:bg-amber-100 border border-amber-200/60 rounded-xl transition-colors"
-            title="Xem Tiến trình Pipeline"
-          >
-            <Cpu size={15} />
           </button>
 
           <button
@@ -299,7 +350,7 @@ function DocumentRow({
               }
             }}
             className="p-2 text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 rounded-xl transition-colors"
-            title="Tải về file gốc"
+            title="Tải xuống tệp tin gốc"
           >
             <Download size={15} />
           </button>

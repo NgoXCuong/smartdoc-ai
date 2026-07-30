@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  LayoutDashboard,
   FileText,
   MessageSquare,
   ShieldAlert,
@@ -56,7 +57,7 @@ export default function Sidebar() {
           </div>
           <span className="font-bold text-lg text-slate-800 tracking-tight">SmartDoc AI</span>
         </div>
-        <p className="text-[11px] text-slate-500 font-medium ml-11">Quản lý tài liệu thông minh</p>
+        <p className="text-[11px] text-slate-500 font-medium ml-11">AI Knowledge Workspace</p>
       </div>
 
       <div className="px-5 my-4">
@@ -64,16 +65,22 @@ export default function Sidebar() {
           onClick={() => window.dispatchEvent(new CustomEvent('trigger-upload'))}
           className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl py-3 flex items-center justify-center gap-2 font-bold text-sm shadow-md shadow-blue-600/20 transition-all"
         >
-          <span className="text-lg leading-none mb-0.5">+</span> Tạo tài liệu mới
+          <span className="text-lg leading-none mb-0.5">+</span> Tải tài liệu
         </button>
       </div>
 
       <nav className="flex-1 px-3 space-y-1 mt-2">
         <NavItem
           href="/"
+          icon={<LayoutDashboard size={18} />}
+          label="Dashboard"
+          active={pathname === "/"}
+        />
+        <NavItem
+          href="/documents"
           icon={<FileText size={18} />}
           label="Tài liệu"
-          active={pathname === "/"}
+          active={pathname.startsWith("/documents")}
         />
         <NavItem
           href="/chat"
@@ -108,22 +115,24 @@ export default function Sidebar() {
           active={pathname.startsWith("/activity-logs")}
         />
 
-        {user.role === "admin" && (
-          <div className="pt-4 mt-4 border-t border-slate-100">
+        <div className="pt-3 mt-3 border-t border-slate-100 px-1">
+          <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Hệ thống & Kỹ thuật</p>
+          <NavItem
+            href="/admin/analytics"
+            icon={<TrendingUp size={18} />}
+            label="Giám sát AI"
+            active={pathname.startsWith("/admin/analytics")}
+            badge="RAG Metrics"
+          />
+          {user.role === "admin" && (
             <NavItem
               href="/admin"
               icon={<ShieldAlert size={18} />}
-              label="Hệ thống"
+              label="Quản trị Hệ thống"
               active={pathname === "/admin"}
             />
-            <NavItem
-              href="/admin/analytics"
-              icon={<TrendingUp size={18} />}
-              label="Giám sát AI"
-              active={pathname === "/admin/analytics"}
-            />
-          </div>
-        )}
+          )}
+        </div>
       </nav>
 
       {/* AI System Status Indicator */}
@@ -164,7 +173,7 @@ function NavItem({
   label: string;
   active?: boolean;
   href: string;
-  badge?: number;
+  badge?: number | string;
 }) {
   return (
     <Link
@@ -181,16 +190,16 @@ function NavItem({
       </span>
       <span className="flex-1">{label}</span>
 
-      {/* Unread Badge */}
-      {badge != null && badge > 0 && (
+      {/* Badge */}
+      {badge != null && (
         <motion.span
-          key={badge}
+          key={String(badge)}
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          className="min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-indigo-200"
+          className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-indigo-200"
         >
-          {badge > 99 ? "99+" : badge}
+          {typeof badge === "number" ? (badge > 99 ? "99+" : badge) : badge}
         </motion.span>
       )}
     </Link>

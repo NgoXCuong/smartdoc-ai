@@ -10,8 +10,8 @@ import { useSocket } from "@/hooks/useSocket";
 // Dashboard Components
 import Header from "@/components/dashboard/Header";
 import StatsOverview from "@/components/dashboard/StatsOverview";
-import DocumentTable from "@/components/dashboard/DocumentTable";
 import MoveDocumentModal from "@/components/dashboard/MoveDocumentModal";
+import { FileText, ArrowRight, Clock, Cpu, Download, Share2, History, Trash2, HardDrive } from "lucide-react";
 
 export default function Dashboard() {
   const [documents, setDocuments] = useState<any[]>([]);
@@ -42,15 +42,14 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchDocuments(true, currentWorkspaceId, searchQuery);
-      // Cache current workspace to localStorage for the global ClientLayout uploader
       localStorage.setItem("activeWorkspaceId", currentWorkspaceId || "");
     }
   }, [currentWorkspaceId, user, searchQuery]);
 
   useEffect(() => {
     const handleDocumentUploaded = () => {
-      fetchDocuments(false, currentWorkspaceId, searchQuery); // background refresh
-      fetchUsage(); // fetch updated storage stats
+      fetchDocuments(false, currentWorkspaceId, searchQuery);
+      fetchUsage();
     };
     window.addEventListener("document-uploaded", handleDocumentUploaded);
     return () => window.removeEventListener("document-uploaded", handleDocumentUploaded);
@@ -66,8 +65,8 @@ export default function Dashboard() {
         } else if (data.status === "failed") {
           toast.error(`Lỗi xử lý tài liệu "${data.fileName}": ${data.errorMessage}`);
         }
-        fetchDocuments(false, currentWorkspaceId, searchQuery); // background refresh
-        fetchUsage(); // refresh usage
+        fetchDocuments(false, currentWorkspaceId, searchQuery);
+        fetchUsage();
       });
 
       socket.on("document_progress", (data) => {
@@ -79,7 +78,7 @@ export default function Dashboard() {
           )
         );
         if (data.status === "completed") {
-          fetchDocuments(false, currentWorkspaceId, searchQuery); // Refresh to get tags & summary
+          fetchDocuments(false, currentWorkspaceId, searchQuery);
           fetchUsage();
         }
       });
@@ -131,7 +130,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (e: React.MouseEvent, docId: string) => {
-    e.stopPropagation(); // Prevent card click
+    e.stopPropagation();
     if (!confirm("Bạn có chắc chắn muốn xóa tài liệu này không? Hành động này không thể hoàn tác.")) return;
 
     const toastId = toast.loading("Đang xóa...");
@@ -160,7 +159,7 @@ export default function Dashboard() {
   const processingDocs = documents.filter(d => d.status === "processing" || d.status === "pending").length;
 
   const usedStorage = usageData?.totalStorageBytes || 0;
-  const maxStorage = usageData?.quota?.maxStorageBytes || 1073741824; // 1GB default
+  const maxStorage = usageData?.quota?.maxStorageBytes || 1073741824;
   const storagePercent = Math.min((usedStorage / maxStorage) * 100, 100);
 
   const formatBytes = (bytes: number) => {
@@ -168,6 +167,9 @@ export default function Dashboard() {
     const mb = bytes / (1024 * 1024);
     return mb < 1000 ? `${mb.toFixed(2)} MB` : `${(mb / 1024).toFixed(2)} GB`;
   };
+
+  // Top 5 recent documents for Dashboard
+  const recentDocuments = documents.slice(0, 5);
 
   if (!user) return null;
 
@@ -180,16 +182,14 @@ export default function Dashboard() {
         onSearchChange={setSearchQuery}
       />
 
-      <div className="flex-1 overflow-y-auto p-10 bg-slate-50/50 relative">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent -z-10" />
-
+      <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50 relative">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
           className="max-w-[1200px] mx-auto"
         >
+          {/* AI Knowledge Workspace Dashboard Main Overview */}
           <StatsOverview
             user={user}
             documentsLength={documents.length}
@@ -197,44 +197,130 @@ export default function Dashboard() {
             processingDocs={processingDocs}
           />
 
-          <DocumentTable
-            documents={documents}
-            loading={loading}
-            handleDelete={handleDelete}
-            onOpenMoveModal={(doc) => {
-              setSelectedDoc(doc);
-              setIsMoveModalOpen(true);
-            }}
-            onRefresh={() => fetchDocuments(true, currentWorkspaceId, searchQuery)}
-          />
-
-          {/* Bottom Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="col-span-2 bg-[#0A47B7] rounded-2xl p-8 relative overflow-hidden text-white flex flex-col items-start justify-center shadow-md">
-              <h2 className="text-[22px] font-bold mb-2">Trò chuyện với văn bản</h2>
-              <p className="text-blue-100/90 mb-6 text-[13px] max-w-sm leading-relaxed">
-                Sử dụng AI để tóm tắt, tìm kiếm thông tin và phân tích tài liệu của bạn trong vài giây.
-              </p>
-              <button 
-                onClick={() => router.push("/chat")}
-                className="bg-white text-[#0A47B7] px-6 py-2.5 rounded-full font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors z-10"
+          {/* 7. Recent Documents Section (Clean 5-6 Items view) */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs mb-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                  <FileText size={18} />
+                </div>
+                <h3 className="text-base font-bold text-slate-800">📄 Tài liệu gần đây</h3>
+                <span className="text-xs text-slate-400 font-semibold">({recentDocuments.length} / {documents.length})</span>
+              </div>
+              
+              <button
+                onClick={() => router.push('/documents')}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1.5 bg-blue-50/80 hover:bg-blue-100/80 px-3.5 py-1.5 rounded-xl border border-blue-200/60"
               >
-                Bắt đầu ngay
+                Xem tất cả tài liệu <ArrowRight size={14} />
               </button>
             </div>
 
-            <div className="col-span-1 bg-[#F0F5FF] rounded-2xl p-7 flex flex-col justify-center">
-              <h3 className="text-[15px] font-bold text-slate-800 mb-6">Dung lượng lưu trữ</h3>
-              <div className="w-full h-1.5 bg-blue-200/50 rounded-full mb-3 overflow-hidden">
+            {recentDocuments.length > 0 ? (
+              <div className="divide-y divide-slate-100">
+                {recentDocuments.map((doc) => {
+                  const fileNameLower = (doc.fileName || "").toLowerCase();
+                  const isPdf = fileNameLower.endsWith(".pdf");
+                  const isDocx = fileNameLower.endsWith(".docx") || fileNameLower.endsWith(".doc");
+                  const isTxt = fileNameLower.endsWith(".txt") || fileNameLower.endsWith(".md");
+
+                  return (
+                    <div
+                      key={doc._id}
+                      onClick={() => router.push('/documents')}
+                      className="py-3.5 px-3 flex items-center justify-between hover:bg-blue-50/40 rounded-xl transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="shrink-0">
+                          {isPdf ? (
+                            <div className="w-9 h-9 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center font-bold text-[10px]">
+                              PDF
+                            </div>
+                          ) : isDocx ? (
+                            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">
+                              DOC
+                            </div>
+                          ) : isTxt ? (
+                            <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-[10px]">
+                              TXT
+                            </div>
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-[10px]">
+                              FILE
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-1">
+                            {doc.fileName}
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium">
+                            {doc.fileSize ? (doc.fileSize / 1024 / 1024).toFixed(2) : "0.00"} MB
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          doc.status === "completed" 
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                            : "bg-amber-50 text-amber-600 border-amber-200"
+                        }`}>
+                          {doc.status === "completed" ? "✅ Indexed" : "⏳ Processing"}
+                        </span>
+
+                        <span className="text-[11px] font-medium text-slate-400 hidden sm:inline-block">
+                          {doc.createdAt && !isNaN(new Date(doc.createdAt).getTime())
+                            ? new Date(doc.createdAt).toLocaleDateString('vi-VN')
+                            : "Vừa xong"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                Chưa có tài liệu nào gần đây. Hãy tải lên tài liệu mới!
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Banner Storage Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+            <div className="col-span-2 bg-[#0A47B7] rounded-2xl p-7 relative overflow-hidden text-white flex flex-col items-start justify-center shadow-md">
+              <h2 className="text-xl font-bold mb-2">Trò chuyện với văn bản bằng AI RAG</h2>
+              <p className="text-blue-100/90 mb-5 text-[12px] max-w-md leading-relaxed">
+                Hệ thống hỗ trợ tóm tắt, truy vấn ngữ nghĩa chuyên sâu và trích xuất trích dẫn chính xác từ tài liệu của bạn.
+              </p>
+              <button 
+                onClick={() => router.push("/chat")}
+                className="bg-white text-[#0A47B7] px-5 py-2 rounded-full font-bold text-xs shadow-sm hover:bg-slate-50 transition-colors z-10"
+              >
+                Bắt đầu trò chuyện →
+              </button>
+            </div>
+
+            <div className="col-span-1 bg-[#F0F5FF] rounded-2xl p-6 flex flex-col justify-center border border-blue-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <HardDrive size={15} className="text-blue-600" /> Storage Usage
+                </h3>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                  {storagePercent.toFixed(0)}%
+                </span>
+              </div>
+              <div className="w-full h-2 bg-blue-200/50 rounded-full mb-3 overflow-hidden">
                 <div className="h-full bg-blue-600 rounded-full" style={{ width: `${storagePercent}%` }}></div>
               </div>
-              <div className="flex justify-between items-center text-[11px] font-semibold mb-6">
+              <div className="flex justify-between items-center text-[10px] font-bold mb-4">
                 <span className="text-slate-600">{formatBytes(usedStorage)} đã dùng</span>
                 <span className="text-slate-400">{formatBytes(maxStorage)} tổng cộng</span>
               </div>
               <button 
                 onClick={() => router.push("/settings")}
-                className="w-full bg-transparent border border-blue-200 text-blue-600 hover:bg-blue-100/50 py-2.5 rounded-full font-bold text-sm transition-colors"
+                className="w-full bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 py-2 rounded-xl font-bold text-xs transition-colors"
               >
                 Nâng cấp dung lượng
               </button>

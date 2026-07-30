@@ -88,7 +88,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <NotificationProvider>
       <div className="flex h-screen bg-background text-foreground overflow-hidden">
         <Sidebar />
-        <div className="flex-1 flex flex-col relative overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col relative overflow-y-auto bg-background">
           {children}
         </div>
       </div>

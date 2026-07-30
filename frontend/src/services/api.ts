@@ -232,6 +232,7 @@ export const folderApi = {
 export const adminApi = {
   getStats: () => apiClient.get("/admin/stats"),
   getUsers: () => apiClient.get("/admin/users"),
+  updateUser: (id: string, data: any) => apiClient.put(`/admin/users/${id}`, data),
   deleteUser: (id: string) => apiClient.delete(`/admin/users/${id}`),
   getUsage: () => apiClient.get("/admin/usage"),
 };
